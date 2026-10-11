@@ -17,7 +17,7 @@ Set direct supply to `false` to disable it. Set the Red Science multiplier from 
 
 ## Install
 
-Extract the release ZIP and run `Install.bat`. The installer preserves an existing `settings.json`; enable InfraSpace QoL in the game's Mods menu after installation.
+Extract the release ZIP and run `InfraSpaceQoLInstaller.exe`. It preserves an existing `settings.json`; enable InfraSpace QoL in the game's Mods menu after installation.
 
 ## Build
 
@@ -36,3 +36,5 @@ Run the regression checks with PowerShell 7 after building:
 ```powershell
 pwsh -NoProfile -File .\tests\Regression.ps1
 ```
+
+Build the Windows installer with `installer\build.bat`.
