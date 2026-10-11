@@ -1,6 +1,6 @@
 # InfraSpace QoL Mod
 
-InfraSpace QoL sends Collection Center stock to factory inputs first, then to Storehouses with room. It also configures Red Science consumption. Direct supply is enabled by default; the Red Science multiplier defaults to `0.5`.
+InfraSpace QoL adds a `4x` Very Fast option to the dashboard speed controls, sends Collection Center stock to factory inputs first and then to Storehouses with room, and configures Red Science consumption. Direct supply is enabled by default; the Red Science multiplier defaults to `0.5`.
 
 Storehouses accept fixed resource categories, including concrete; there is no material selector. Direct supply routes stock to Storehouses over roads after factory requests.
 

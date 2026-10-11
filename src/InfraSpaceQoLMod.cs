@@ -20,6 +20,10 @@ namespace InfraSpaceQoL
 
             ModSettings.Load();
             var patches = new List<PatchPlan>();
+            Plan(patches, typeof(Dashboard), "Start", typeof(SpeedPatches), null, "DashboardStartPostfix", null);
+            Plan(patches, typeof(TimeManager), "ButtonSelectionChanged", typeof(SpeedPatches), "TimeButtonSelectionPrefix", null, null);
+            Plan(patches, typeof(TimeManager), "SetTimeState", typeof(SpeedPatches), null, "TimeStatePostfix", null);
+
             if (ModSettings.Current.Logistics.DirectCollectionSupply)
             {
                 Plan(patches, typeof(ConsumerProducer), "RequestResources", typeof(LogisticsPatches), "RequestPrefix", "RequestPostfix", null);
