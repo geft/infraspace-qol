@@ -7,14 +7,25 @@ namespace InfraSpaceQoL
 {
     internal static class SpeedPatches
     {
-        private const int VeryFastButtonIndex = 3;
+        private const int VeryFastButtonIndex = 2;
         private const string VeryFastButtonName = "InfraSpaceQoL_VeryFastButton";
 
         internal static void DashboardStartPostfix(Dashboard __instance)
         {
+            AddVeryFastButton(__instance);
+        }
+
+        internal static void DashboardStartAfterLoadPostfix(Dashboard __instance)
+        {
+            AddVeryFastButton(__instance);
+        }
+
+        private static void AddVeryFastButton(Dashboard __instance)
+        {
             ToggleButtonGroup group = __instance.timeToggleButtonGroup;
             if (group == null)
             {
+                Debug.LogWarning("[InfraSpaceQoL] Could not add the Very Fast button because the dashboard speed group was unavailable.");
                 return;
             }
 
@@ -47,6 +58,7 @@ namespace InfraSpaceQoL
                 ToggleButton template = buttons[buttons.Count - 1];
                 buttonObject = UnityEngine.Object.Instantiate(template.gameObject, template.transform.parent, false);
                 buttonObject.name = VeryFastButtonName;
+                buttonObject.SetActive(true);
                 veryFastButton = buttonObject.GetComponent<ToggleButton>();
                 if (veryFastButton == null)
                 {
@@ -68,6 +80,7 @@ namespace InfraSpaceQoL
                 {
                     tooltip.Init("Very Fast", "Game speed: 4x");
                 }
+                Debug.Log("[InfraSpaceQoL] Added the Very Fast (4x) dashboard speed button.");
             }
             catch (Exception exception)
             {
