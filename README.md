@@ -17,7 +17,7 @@ Set direct supply to `false` to disable it. Set the Red Science multiplier from 
 
 ## Install
 
-Copy `InfraSpaceQoL.dll`, `0Harmony.dll`, `config.json`, and `settings.json` from `bin/Release/net472` to `%USERPROFILE%\AppData\LocalLow\Dionic Software\InfraSpace\mods\InfraSpaceQoL`, then enable the mod in InfraSpace's Mods menu.
+Extract the release ZIP and run `Install.bat`. The installer preserves an existing `settings.json`; enable InfraSpace QoL in the game's Mods menu after installation.
 
 ## Build
 
