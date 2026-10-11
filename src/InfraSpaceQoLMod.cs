@@ -30,6 +30,7 @@ namespace InfraSpaceQoL
                 Plan(patches, typeof(ConsumerProducer), "RequestResources", typeof(LogisticsPatches), "RequestPrefix", "RequestPostfix", null);
                 Plan(patches, typeof(ConsumerProducer), "Destroy", typeof(LogisticsPatches), null, "ConsumerDestroyedPostfix", null);
                 Plan(patches, typeof(OrderManager), "UpdateSimulationThread", typeof(LogisticsPatches), null, "OrderManagerPostfix", null);
+                Plan(patches, typeof(OrderManager), "GetInterestedConsumers", typeof(LogisticsPatches), null, "InterestedConsumersPostfix", null);
                 Plan(patches, typeof(CollectionProductionLogic), "TryStartDeliveryToDistributionCenter", typeof(LogisticsPatches), "CollectionDispatchPrefix", null, "CollectionDispatchFinalizer");
                 Plan(patches, typeof(DistributionProductionLogic), "TrySendCar", typeof(LogisticsPatches), "DistributionDispatchPrefix", null, "DistributionDispatchFinalizer");
             }

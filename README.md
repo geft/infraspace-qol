@@ -4,6 +4,8 @@ InfraSpace QoL adds a `4x` Very Fast option to the dashboard speed controls, sen
 
 Storehouses accept fixed resource categories, including concrete; there is no material selector. Direct supply routes stock to Storehouses over roads after factory requests.
 
+Collection Centers, Distribution Centers, and ordinary producers prefer the nearest eligible Storehouse by road route length. A closer Storehouse must accept the resource, allow the supplier's district, have a usable road route, and have room for a full truck including deliveries already on the way. Native supplier radius and connection rules still apply. Trucks already dispatched keep their destinations.
+
 ## Configure
 
 Edit `settings.json` beside the mod DLL, then restart the game:

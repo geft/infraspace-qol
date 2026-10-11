@@ -12,6 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="installer\**\*.cs" />
     <Reference Include="0Harmony">
       <HintPath>$(HarmonyPath)</HintPath>
       <Private>true</Private>
@@ -24,6 +25,10 @@
     <Reference Include="InfraSpaceGameFeatures" Private="false"><HintPath>$(InfraSpaceManagedDir)\InfraSpaceGameFeatures.dll</HintPath></Reference>
     <Reference Include="old" Private="false"><HintPath>$(InfraSpaceManagedDir)\old.dll</HintPath></Reference>
     <Reference Include="UnityEngine.CoreModule" Private="false"><HintPath>$(InfraSpaceManagedDir)\UnityEngine.CoreModule.dll</HintPath></Reference>
+    <Reference Include="UnityEngine.UI" Private="false"><HintPath>$(InfraSpaceManagedDir)\UnityEngine.UI.dll</HintPath></Reference>
+    <Reference Include="UnityEngine.UIModule" Private="false"><HintPath>$(InfraSpaceManagedDir)\UnityEngine.UIModule.dll</HintPath></Reference>
+    <Reference Include="UnityEngine.TextRenderingModule" Private="false"><HintPath>$(InfraSpaceManagedDir)\UnityEngine.TextRenderingModule.dll</HintPath></Reference>
+    <Reference Include="Unity.TextMeshPro" Private="false"><HintPath>$(InfraSpaceManagedDir)\Unity.TextMeshPro.dll</HintPath></Reference>
     <Reference Include="Newtonsoft.Json" Private="false"><HintPath>$(InfraSpaceManagedDir)\Newtonsoft.Json.dll</HintPath></Reference>
   </ItemGroup>
 

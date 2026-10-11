@@ -25,6 +25,83 @@ namespace InfraSpaceQoL
             internal long RouteDistance;
         }
 
+        internal sealed class StorehouseRoute
+        {
+            internal ConsumerProducer Consumer;
+            internal long Distance;
+            internal long BuildingId;
+        }
+
+        internal static StorehouseRoute SelectNearestStorehouseRoute(IEnumerable<StorehouseRoute> routes)
+        {
+            return routes.OrderBy(route => route.Distance).ThenBy(route => route.BuildingId).FirstOrDefault();
+        }
+
+        private static ConsumerProducer FindNearestStorehouse(Building source, Resource resource,
+            IEnumerable<ConsumerProducer> consumers)
+        {
+            var routes = new List<StorehouseRoute>();
+            foreach (ConsumerProducer consumer in consumers)
+            {
+                int amount;
+                float priority;
+                if (consumer == null || !(consumer.productionLogic is StorehouseProductionLogic) ||
+                    consumer.building == null || !consumer.IsValid() || !consumer.building.IsValidAndBuilt() ||
+                    !TryGetCurrentDemand(consumer, resource, out amount, out priority) ||
+                    !DistrictCanSupply(source, consumer.building, resource))
+                {
+                    continue;
+                }
+                long distance;
+                if (TryGetRouteDistance(PathFinderFacadeRoads.GetPath(source, consumer.building), out distance))
+                {
+                    routes.Add(new StorehouseRoute { Consumer = consumer, Distance = distance,
+                        BuildingId = consumer.building.GetID() });
+                }
+            }
+            StorehouseRoute nearest = SelectNearestStorehouseRoute(routes);
+            return nearest == null ? null : nearest.Consumer;
+        }
+
+        private static bool TryGetRouteDistance(List<PathPart> path, out long distance)
+        {
+            distance = 0L;
+            if (path == null || path.Count == 0 || !PathFinder.VerifyPath(path))
+            {
+                return false;
+            }
+            foreach (PathPart part in path)
+            {
+                if (part == null || !part.IsValid() || !part.IsBuilt())
+                {
+                    return false;
+                }
+                distance += Math.Max(0, part.GetPathDist());
+            }
+            return true;
+        }
+
+        public static void InterestedConsumersPostfix(Resource resource,
+            List<Pair<ConsumerProducer, float>> consumers, ConsumerProducer producer)
+        {
+            if (!ModSettings.Current.Logistics.DirectCollectionSupply || producer == null || producer.building == null ||
+                !consumers.Any(item => item.first.productionLogic is StorehouseProductionLogic))
+            {
+                return;
+            }
+            // Keep native request radius and supplier eligibility; only choose between the
+            // Storehouses the game already offered to this producer.
+            ConsumerProducer nearest = FindNearestStorehouse(producer.building, resource,
+                consumers.Where(item => item.second > 0f).Select(item => item.first));
+            FilterStorehouseConsumers(consumers, nearest);
+        }
+
+        internal static void FilterStorehouseConsumers(List<Pair<ConsumerProducer, float>> consumers,
+            ConsumerProducer nearest)
+        {
+            consumers.RemoveAll(item => item.first.productionLogic is StorehouseProductionLogic && item.first != nearest);
+        }
+
         private static readonly object RequestGate = new object();
         private static readonly object DispatchGate = new object();
         private static readonly ConditionalWeakTable<CollectionProductionLogic, object> InventoryGates =
@@ -285,24 +362,19 @@ namespace InfraSpaceQoL
                     continue;
                 }
 
-                List<PathPart> path = PathFinderFacadeRoads.GetPath(center.consumerProducer.building, destination.building);
-                if (path == null || path.Count == 0 || !PathFinder.VerifyPath(path))
+                if (destination.productionLogic is StorehouseProductionLogic)
                 {
-                    continue;
+                    HashSet<ConsumerProducer> consumers;
+                    if (!WorldScripts.Inst.registry.consumers.TryGetValue(resource, out consumers) ||
+                        FindNearestStorehouse(center.consumerProducer.building, resource, consumers) != destination)
+                    {
+                        continue;
+                    }
                 }
 
-                long distance = 0L;
-                bool validPath = true;
-                foreach (PathPart part in path)
-                {
-                    if (part == null || !part.IsValid() || !part.IsBuilt())
-                    {
-                        validPath = false;
-                        break;
-                    }
-                    distance += Math.Max(0, part.GetPathDist());
-                }
-                if (!validPath)
+                List<PathPart> path = PathFinderFacadeRoads.GetPath(center.consumerProducer.building, destination.building);
+                long distance;
+                if (!TryGetRouteDistance(path, out distance))
                 {
                     continue;
                 }
@@ -326,8 +398,13 @@ namespace InfraSpaceQoL
 
         private static bool DistrictCanSupply(CollectionProductionLogic center, Building destination, Resource resource)
         {
+            return DistrictCanSupply(center.consumerProducer.building, destination, resource);
+        }
+
+        private static bool DistrictCanSupply(Building source, Building destination, Resource resource)
+        {
             DistrictsManager districts = WorldScripts.Inst.districtsManager;
-            byte originDistrict = districts.GetDistrict(center.consumerProducer.building.GetPosition());
+            byte originDistrict = districts.GetDistrict(source.GetPosition());
             byte targetDistrict = districts.GetDistrict(destination.GetPosition());
             List<byte> allowedTargets = new List<byte>();
             districts.GetAllowedDistrictTargets(resource, originDistrict, allowedTargets);
@@ -464,6 +541,16 @@ namespace InfraSpaceQoL
             if (!ModSettings.Current.Logistics.DirectCollectionSupply || __instance == null || dest == null || dest.incomingCars == null)
             {
                 return true;
+            }
+
+            // Check before taking the destination lock: comparing other Storehouses while
+            // holding it could deadlock with a worker dispatching to a different destination.
+            if (dest.productionLogic is StorehouseProductionLogic &&
+                FindNearestStorehouse(__instance.consumerProducer.building, __instance.resource,
+                    __instance.connectedConsumers) != dest)
+            {
+                __result = false;
+                return false;
             }
 
             HashSet<Car> gate = dest.incomingCars;

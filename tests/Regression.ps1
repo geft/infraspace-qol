@@ -92,4 +92,47 @@ Assert-Equal ($isSupportedDestination.Invoke($null, @($storehouseConsumer))) $tr
 Assert-Equal ($isSupportedDestination.Invoke($null, @($distributionConsumer))) $false 'Distribution center excluded as direct destination'
 Assert-Equal ($getDestinationPriority.Invoke($null, @($factoryConsumer))) 0 'Factory destination priority'
 Assert-Equal ($getDestinationPriority.Invoke($null, @($storehouseConsumer))) 1 'Storehouse fallback priority'
-Write-Output 'PASS: decimal costs, JSON parsing, incoming reservations, field compatibility, and factory-first Storehouse routing checks.'
+
+# A newer, closer Storehouse must win even when an older distant one is listed first.
+$routeType = $logistics.GetNestedType('StorehouseRoute', [Reflection.BindingFlags]'NonPublic')
+$selectNearest = $logistics.GetMethod('SelectNearestStorehouseRoute', $flags)
+$routeListType = [System.Collections.Generic.List``1].MakeGenericType($routeType)
+function New-StorehouseRoute($consumer, [long]$distance, [long]$id) {
+    $route = [Activator]::CreateInstance($routeType, $true)
+    $routeType.GetField('Consumer', [Reflection.BindingFlags]'Instance,NonPublic').SetValue($route, $consumer)
+    $routeType.GetField('Distance', [Reflection.BindingFlags]'Instance,NonPublic').SetValue($route, $distance)
+    $routeType.GetField('BuildingId', [Reflection.BindingFlags]'Instance,NonPublic').SetValue($route, $id)
+    return $route
+}
+$nearConsumer = New-ConsumerForLogic ([StorehouseProductionLogic])
+$farRoute = New-StorehouseRoute $storehouseConsumer 2000 1
+$nearRoute = New-StorehouseRoute $nearConsumer 100 99
+$routes = [Activator]::CreateInstance($routeListType)
+$routes.Add($farRoute)
+$routes.Add($nearRoute)
+Assert-Equal ($selectNearest.Invoke($null, (, $routes))) $nearRoute 'Nearby newer storage wins'
+$routes.Reverse()
+Assert-Equal ($selectNearest.Invoke($null, (, $routes))) $nearRoute 'Storage ordering does not affect distance'
+$tieRoute = New-StorehouseRoute $storehouseConsumer 100 5
+$routes.Add($tieRoute)
+Assert-Equal ($selectNearest.Invoke($null, (, $routes))) $tieRoute 'Equal routes use stable building ID'
+$routes.Clear()
+$routes.Add($farRoute)
+Assert-Equal ($selectNearest.Invoke($null, (, $routes))) $farRoute 'Farther storage fallback when no nearer eligible route'
+$routes.Clear()
+Assert-Equal ($selectNearest.Invoke($null, (, $routes))) $null 'No eligible storage route'
+
+# Filtering storage choices must preserve native consumers and their priorities.
+$filterStores = $logistics.GetMethod('FilterStorehouseConsumers', $flags)
+$nativeConsumers = New-Object 'System.Collections.Generic.List[Pair[ConsumerProducer,single]]'
+$nativeConsumers.Add([Pair[ConsumerProducer,single]]::new($storehouseConsumer, 0.25))
+$nativeConsumers.Add([Pair[ConsumerProducer,single]]::new($factoryConsumer, 1.0))
+$nativeConsumers.Add([Pair[ConsumerProducer,single]]::new($nearConsumer, 0.25))
+$filterStores.Invoke($null, @($nativeConsumers.PSObject.BaseObject, $nearConsumer))
+Assert-Equal $nativeConsumers.Count 2 'Distant storage removed'
+Assert-Equal $nativeConsumers[0].first $factoryConsumer 'Factory demand preserved'
+Assert-Equal $nativeConsumers[0].second ([single]1.0) 'Factory priority preserved'
+Assert-Equal $nativeConsumers[1].first $nearConsumer 'Nearest storage retained'
+$filterStores.Invoke($null, @($nativeConsumers.PSObject.BaseObject, $null))
+Assert-Equal $nativeConsumers.Count 1 'No eligible storage preserves other demand'
+Write-Output 'PASS: decimal costs, JSON parsing, incoming reservations, field compatibility, factory priority, and nearest Storehouse routing checks.'
