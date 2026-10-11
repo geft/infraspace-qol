@@ -74,4 +74,22 @@ foreach ($field in @(
     catch { $rejected = $_.Exception.InnerException -is [MissingFieldException] }
     Assert-Equal $rejected $true 'Incompatible field rejected'
 }
-Write-Output 'PASS: decimal costs, JSON parsing, incoming reservations, and field compatibility checks.'
+
+# Keep Collection Center truck targets limited to factories and storage, with factories first.
+$logistics = $mod.GetType('InfraSpaceQoL.LogisticsPatches', $true)
+$isSupportedDestination = $logistics.GetMethod('IsSupportedDestination', $flags)
+$getDestinationPriority = $logistics.GetMethod('GetDestinationPriority', $flags)
+function New-ConsumerForLogic($logicType) {
+    $consumer = [Runtime.Serialization.FormatterServices]::GetUninitializedObject([ConsumerProducer])
+    $consumer.productionLogic = [Runtime.Serialization.FormatterServices]::GetUninitializedObject($logicType)
+    return $consumer
+}
+$factoryConsumer = New-ConsumerForLogic ([FactoryProductionLogic])
+$storehouseConsumer = New-ConsumerForLogic ([StorehouseProductionLogic])
+$distributionConsumer = New-ConsumerForLogic ([DistributionProductionLogic])
+Assert-Equal ($isSupportedDestination.Invoke($null, @($factoryConsumer))) $true 'Factory direct destination'
+Assert-Equal ($isSupportedDestination.Invoke($null, @($storehouseConsumer))) $true 'Storehouse direct destination'
+Assert-Equal ($isSupportedDestination.Invoke($null, @($distributionConsumer))) $false 'Distribution center excluded as direct destination'
+Assert-Equal ($getDestinationPriority.Invoke($null, @($factoryConsumer))) 0 'Factory destination priority'
+Assert-Equal ($getDestinationPriority.Invoke($null, @($storehouseConsumer))) 1 'Storehouse fallback priority'
+Write-Output 'PASS: decimal costs, JSON parsing, incoming reservations, field compatibility, and factory-first Storehouse routing checks.'

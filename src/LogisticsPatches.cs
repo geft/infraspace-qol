@@ -15,6 +15,7 @@ namespace InfraSpaceQoL
             internal ConsumerProducer Consumer;
             internal Resource Resource;
             internal float Priority;
+            internal int DestinationPriority;
         }
 
         private sealed class Candidate
@@ -34,6 +35,18 @@ namespace InfraSpaceQoL
             "requestStatusDirty", BindingFlags.Instance | BindingFlags.NonPublic);
         private static int hasPendingRequests;
         private static int firstShipmentLogged;
+        private const float StorehouseRequestPriority = 0.25f;
+
+        internal static bool IsSupportedDestination(ConsumerProducer consumer)
+        {
+            return consumer != null &&
+                (consumer.productionLogic is FactoryProductionLogic || consumer.productionLogic is StorehouseProductionLogic);
+        }
+
+        internal static int GetDestinationPriority(ConsumerProducer consumer)
+        {
+            return consumer != null && consumer.productionLogic is FactoryProductionLogic ? 0 : 1;
+        }
 
         internal static bool ShouldRefreshRequests(ConsumerProducer consumer)
         {
@@ -53,16 +66,16 @@ namespace InfraSpaceQoL
 
         internal static void RefreshRequests(ConsumerProducer consumer)
         {
-            // Mirror only factory demand the game can transport by truck. Replacing each snapshot
-            // also clears stale requests when the factory fills, changes inputs, or becomes invalid.
+            // Mirror factory and Storehouse demand the game can transport by truck. Replacing each
+            // snapshot also clears stale requests when inputs change or the destination becomes invalid.
             Dictionary<Resource, float> activeRequests = new Dictionary<Resource, float>();
             try
             {
                 if (consumer != null && consumer.IsValid() && consumer.building.IsValidAndBuilt() &&
-                    consumer.productionLogic is FactoryProductionLogic && consumer.building.HasAnyIncomingLane())
+                    IsSupportedDestination(consumer) && consumer.building.HasAnyIncomingLane())
                 {
                     List<ResourceCost> consumables = consumer.GetConsumables(verify: false);
-                    FactoryProductionLogic factory = (FactoryProductionLogic)consumer.productionLogic;
+                    FactoryProductionLogic factory = consumer.productionLogic as FactoryProductionLogic;
                     int count = Math.Min(consumables.Count, consumer.incomingStorage.Length);
                     for (int i = 0; i < count; i++)
                     {
@@ -81,9 +94,11 @@ namespace InfraSpaceQoL
                             continue;
                         }
 
-                        float priority = !factory.IncomingStorageFulfilled()
-                            ? Helper.ProjectClamp(remaining, 0, consumable.amount, 0.5f, 1f)
-                            : Helper.ProjectClamp(remaining, 0, consumable.amount, 0f, 0.5f);
+                        float priority = factory == null
+                            ? StorehouseRequestPriority
+                            : (!factory.IncomingStorageFulfilled()
+                                ? Helper.ProjectClamp(remaining, 0, consumable.amount, 0.5f, 1f)
+                                : Helper.ProjectClamp(remaining, 0, consumable.amount, 0f, 0.5f));
                         if (priority > 0f)
                         {
                             activeRequests[resource] = priority;
@@ -142,7 +157,8 @@ namespace InfraSpaceQoL
                         {
                             Consumer = consumerRequest.Key,
                             Resource = resourceRequest.Key,
-                            Priority = resourceRequest.Value
+                            Priority = resourceRequest.Value,
+                            DestinationPriority = GetDestinationPriority(consumerRequest.Key)
                         });
                     }
                 }
@@ -187,7 +203,8 @@ namespace InfraSpaceQoL
                 }
 
                 requests = requests
-                    .OrderByDescending(request => request.Priority)
+                    .OrderBy(request => request.DestinationPriority)
+                    .ThenByDescending(request => request.Priority)
                     .ThenBy(request => request.Consumer != null && request.Consumer.building != null ? request.Consumer.building.GetID() : long.MaxValue)
                     .ThenBy(request => request.Resource == null ? string.Empty : request.Resource.name, StringComparer.Ordinal)
                     .ToList();
@@ -234,8 +251,8 @@ namespace InfraSpaceQoL
         {
             ConsumerProducer destination = request.Consumer;
             Resource resource = request.Resource;
-            if (destination == null || resource == null || !destination.IsValid() ||
-                !destination.building.IsValidAndBuilt() || !(destination.productionLogic is FactoryProductionLogic))
+            if (!IsSupportedDestination(destination) || resource == null || !destination.IsValid() ||
+                !destination.building.IsValidAndBuilt())
             {
                 return;
             }
@@ -321,7 +338,7 @@ namespace InfraSpaceQoL
         {
             orderAmount = ConsumerProducer.GetOrderAmount(resource);
             priority = 0f;
-            if (orderAmount <= 0 || consumer == null || consumer.building == null ||
+            if (orderAmount <= 0 || !IsSupportedDestination(consumer) || consumer.building == null ||
                 !consumer.building.HasAnyIncomingLane() || consumer.building.GetPipeComponentForResource(resource) != null)
             {
                 return false;
@@ -350,9 +367,11 @@ namespace InfraSpaceQoL
             }
 
             FactoryProductionLogic factory = consumer.productionLogic as FactoryProductionLogic;
-            priority = !factory.IncomingStorageFulfilled()
-                ? Helper.ProjectClamp(remaining, 0, cost.amount, 0.5f, 1f)
-                : Helper.ProjectClamp(remaining, 0, cost.amount, 0f, 0.5f);
+            priority = factory == null
+                ? StorehouseRequestPriority
+                : (!factory.IncomingStorageFulfilled()
+                    ? Helper.ProjectClamp(remaining, 0, cost.amount, 0.5f, 1f)
+                    : Helper.ProjectClamp(remaining, 0, cost.amount, 0f, 0.5f));
             return priority > 0f;
         }
 

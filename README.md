@@ -1,6 +1,8 @@
 # InfraSpace QoL Mod
 
-InfraSpace QoL adds direct truck supply from Collection Centers to factories and a configurable Red Science consumption rate. Defaults are enabled for direct supply and `0.5` for Red Science.
+InfraSpace QoL sends Collection Center stock to factory inputs first, then to Storehouses with room. It also configures Red Science consumption. Direct supply is enabled by default; the Red Science multiplier defaults to `0.5`.
+
+To stock a Storehouse, select the material in its resource list and connect a usable incoming road lane. Factories receive priority over Storehouses.
 
 ## Configure
 
