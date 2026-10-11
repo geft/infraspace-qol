@@ -53,6 +53,8 @@ namespace InfraSpaceQoL
 
         internal static void RefreshRequests(ConsumerProducer consumer)
         {
+            // Mirror only factory demand the game can transport by truck. Replacing each snapshot
+            // also clears stale requests when the factory fills, changes inputs, or becomes invalid.
             Dictionary<Resource, float> activeRequests = new Dictionary<Resource, float>();
             try
             {
@@ -190,6 +192,8 @@ namespace InfraSpaceQoL
                     .ThenBy(request => request.Resource == null ? string.Empty : request.Resource.name, StringComparer.Ordinal)
                     .ToList();
 
+                // This postfix runs after native supplier suggestions are dispatched. Build one
+                // resource index for the batch instead of rescanning all centers per request.
                 Dictionary<Resource, List<CollectionProductionLogic>> centersByResource = GroupCollectionCenters();
                 foreach (PendingRequest request in requests)
                 {
@@ -249,6 +253,8 @@ namespace InfraSpaceQoL
                 return;
             }
             List<Candidate> candidates = new List<Candidate>();
+            // Preserve native district export rules and road routing. Require a full order, then
+            // try eligible centers from shortest route to longest.
             foreach (CollectionProductionLogic center in centers)
             {
                 if (center == null || center.resource != resource || center.consumerProducer == null ||
@@ -357,6 +363,8 @@ namespace InfraSpaceQoL
             object inventoryGate = GetInventoryGate(center);
             lock (inventoryGate)
             {
+                // Collection dispatch runs on other simulation workers. Serialize source stock
+                // and destination reservations while checking capacity and registering the car.
                 lock (destination.incomingCars)
                 {
                     int currentOrderAmount;
@@ -381,7 +389,8 @@ namespace InfraSpaceQoL
                         if (!source.building.TryPutCarOnPath(car, ensureSpace: true))
                         {
                             car.Destroy();
-                            // Destroy defers native cleanup; release demand before trying another center.
+                            // Car.Destroy queues native cleanup. Release its logical reservation now
+                            // so the next center can try to fill the same demand.
                             destination.RemoveIncomingCar(car);
                             source.incomingStorage[storageIndex] += orderAmount;
                             return false;
@@ -441,6 +450,8 @@ namespace InfraSpaceQoL
             HashSet<Car> gate = dest.incomingCars;
             Monitor.Enter(gate);
             __state = gate;
+            // Direct and distribution deliveries share input capacity. Hold the native incoming
+            // car lock through dispatch to prevent both suppliers reserving the same free space.
             if (!HasRoomForDelivery(dest, __instance.resource, orderAmount))
             {
                 Monitor.Exit(gate);
@@ -469,6 +480,7 @@ namespace InfraSpaceQoL
             }
 
             List<ResourceCost> consumables = consumer.GetConsumables(verify: false);
+            // Count arrived stock and registered cars against the consumer's input limit.
             for (int i = 0; i < consumables.Count && i < consumer.incomingStorage.Length; i++)
             {
                 if (consumables[i].resource == resource)

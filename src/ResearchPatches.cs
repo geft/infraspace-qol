@@ -40,12 +40,16 @@ namespace InfraSpaceQoL
                 }
 
                 int queuedProgress = (int)PendingResearchProgress.GetValue(manager);
+                // UpdateFrameUnity applies queued points later. Include them so multiple lab ticks
+                // in one frame cannot all make the same Red Science consumption decision.
                 long currentProgress = (long)committedProgress + queuedProgress;
                 if (currentProgress >= technology.cost)
                 {
                     return false;
                 }
 
+                // Track cumulative pack cost; each point consumes only the increase in ceil(progress × rate).
+                // Decimal arithmetic avoids rounding values such as 7.000000... up to an extra pack.
                 long redBefore = GetRedScienceCost(currentProgress, multiplier);
                 long redAfter = GetRedScienceCost(currentProgress + 1L, multiplier);
                 bool consumeRed = redAfter > redBefore;
@@ -58,6 +62,7 @@ namespace InfraSpaceQoL
                 }
 
                 int count = Math.Min(storage.Length, inputs.Length);
+                // Other science inputs remain one-per-point on mixed-science technologies.
                 for (int i = 0; i < count; i++)
                 {
                     if ((inputs[i] != redResource || consumeRed) && storage[i] <= 0)
@@ -87,6 +92,7 @@ namespace InfraSpaceQoL
         public static void ResearchManagerLockPrefix(ResearchManager __instance, out ResearchManager __state)
         {
             __state = __instance;
+            // The simulation and Unity threads both access progress and current research.
             Monitor.Enter(__instance);
         }
 
@@ -116,6 +122,8 @@ namespace InfraSpaceQoL
                 }
 
                 List<Resource> redResources = new List<Resource>();
+                // Both lists matter: the game uses the caller list to create storage slots and may
+                // later reuse the cached list when rebuilding the lab's requested resources.
                 foreach (string name in technology.requiredResources.Where(IsRedScienceResourceName))
                 {
                     try

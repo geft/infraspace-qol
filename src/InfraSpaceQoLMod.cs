@@ -57,6 +57,8 @@ namespace InfraSpaceQoL
             Harmony harmony = new Harmony(harmonyId);
             try
             {
+                // Resolve enabled targets before this block. If Harmony rejects a patch at runtime,
+                // remove only this mod's patches so unsupported game updates fail cleanly.
                 foreach (PatchPlan patch in patches)
                 {
                     harmony.Patch(patch.Target, patch.Prefix, patch.Postfix, null, patch.Finalizer);
