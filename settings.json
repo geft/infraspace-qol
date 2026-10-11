@@ -1,0 +1,8 @@
+{
+  "Logistics": {
+    "DirectCollectionSupply": true
+  },
+  "Research": {
+    "RedScienceCostMultiplier": 0.5
+  }
+}

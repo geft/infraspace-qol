@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>InfraSpaceQoL</AssemblyName>
+    <RootNamespace>InfraSpaceQoL</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <DebugType>none</DebugType>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <InfraSpaceManagedDir Condition="'$(InfraSpaceManagedDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\InfraSpace\InfraSpace_Data\Managed</InfraSpaceManagedDir>
+    <HarmonyPath Condition="'$(HarmonyPath)' == ''">$(ISModKitDir)\ExampleMods\CryoChambers\0Harmony.dll</HarmonyPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>$(HarmonyPath)</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp" Private="false"><HintPath>$(InfraSpaceManagedDir)\Assembly-CSharp.dll</HintPath></Reference>
+    <Reference Include="DionicCore" Private="false"><HintPath>$(InfraSpaceManagedDir)\DionicCore.dll</HintPath></Reference>
+    <Reference Include="DionicGame" Private="false"><HintPath>$(InfraSpaceManagedDir)\DionicGame.dll</HintPath></Reference>
+    <Reference Include="InfraSpaceCore" Private="false"><HintPath>$(InfraSpaceManagedDir)\InfraSpaceCore.dll</HintPath></Reference>
+    <Reference Include="InfraSpaceGameExtensions" Private="false"><HintPath>$(InfraSpaceManagedDir)\InfraSpaceGameExtensions.dll</HintPath></Reference>
+    <Reference Include="InfraSpaceGameFeatures" Private="false"><HintPath>$(InfraSpaceManagedDir)\InfraSpaceGameFeatures.dll</HintPath></Reference>
+    <Reference Include="old" Private="false"><HintPath>$(InfraSpaceManagedDir)\old.dll</HintPath></Reference>
+    <Reference Include="UnityEngine.CoreModule" Private="false"><HintPath>$(InfraSpaceManagedDir)\UnityEngine.CoreModule.dll</HintPath></Reference>
+    <Reference Include="Newtonsoft.Json" Private="false"><HintPath>$(InfraSpaceManagedDir)\Newtonsoft.Json.dll</HintPath></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="config.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="settings.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="ValidateInfraSpaceReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(InfraSpaceManagedDir)\old.dll')" Text="Set InfraSpaceManagedDir to the game's InfraSpace_Data\Managed directory." />
+    <Error Condition="!Exists('$(InfraSpaceManagedDir)\Assembly-CSharp.dll')" Text="InfraSpace Assembly-CSharp.dll was not found." />
+    <Error Condition="!Exists('$(HarmonyPath)')" Text="Set HarmonyPath to the 0Harmony.dll supplied with the official ISModKit CryoChambers example." />
+  </Target>
+</Project>
