@@ -2,7 +2,7 @@
 
 InfraSpace QoL sends Collection Center stock to factory inputs first, then to Storehouses with room. It also configures Red Science consumption. Direct supply is enabled by default; the Red Science multiplier defaults to `0.5`.
 
-To stock a Storehouse, select the material in its resource list and connect a usable incoming road lane. Factories receive priority over Storehouses.
+Storehouses accept fixed resource categories, including concrete; there is no material selector. Direct supply routes stock to Storehouses over roads after factory requests.
 
 ## Configure
 
