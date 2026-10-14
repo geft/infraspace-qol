@@ -7,7 +7,7 @@ namespace InfraSpaceQoL
 {
     internal static class SpeedPatches
     {
-        private const int VeryFastButtonIndex = 2;
+        private static int veryFastButtonIndex = -1;
         private const string VeryFastButtonName = "InfraSpaceQoL_VeryFastButton";
 
         internal static void DashboardStartPostfix(Dashboard __instance)
@@ -40,19 +40,21 @@ namespace InfraSpaceQoL
             {
                 if (buttons[i] != null && buttons[i].gameObject.name == VeryFastButtonName)
                 {
+                    veryFastButtonIndex = i;
                     return;
                 }
             }
 
-            if (buttons.Count != VeryFastButtonIndex)
+            if (buttons.Count == 0)
             {
-                Debug.LogWarning("[InfraSpaceQoL] Could not add the Very Fast button because the game's speed controls changed.");
+                Debug.LogWarning("[InfraSpaceQoL] Could not add the Very Fast button because there were no speed buttons to clone.");
                 return;
             }
 
             GameObject buttonObject = null;
             ToggleButton veryFastButton = null;
             bool addedToGroup = false;
+            int buttonIndex = buttons.Count;
             try
             {
                 ToggleButton template = buttons[buttons.Count - 1];
@@ -68,6 +70,7 @@ namespace InfraSpaceQoL
                 PlaceAfterExistingButtons(buttons, template, veryFastButton);
                 buttons.Add(veryFastButton);
                 addedToGroup = true;
+                veryFastButtonIndex = buttonIndex;
                 veryFastButton.SetToggleButtonGroup(group);
                 veryFastButton.SetIsPressed(false, false);
                 if (veryFastButton.text != null)
@@ -80,13 +83,17 @@ namespace InfraSpaceQoL
                 {
                     tooltip.Init("Very Fast", "Game speed: 4x");
                 }
-                Debug.Log("[InfraSpaceQoL] Added the Very Fast (4x) dashboard speed button.");
+                Debug.Log("[InfraSpaceQoL] Added the Very Fast (4x) dashboard speed button at index " + buttonIndex + ".");
             }
             catch (Exception exception)
             {
                 if (addedToGroup)
                 {
                     buttons.Remove(veryFastButton);
+                }
+                if (veryFastButtonIndex == buttonIndex)
+                {
+                    veryFastButtonIndex = -1;
                 }
                 if (buttonObject != null)
                 {
@@ -99,8 +106,9 @@ namespace InfraSpaceQoL
         internal static bool TimeButtonSelectionPrefix(TimeManager __instance)
         {
             Dashboard dashboard = WorldScripts.Inst.dashboard;
-            if (dashboard == null || dashboard.timeToggleButtonGroup == null ||
-                dashboard.timeToggleButtonGroup.selectedButton != VeryFastButtonIndex)
+            int buttonIndex = veryFastButtonIndex;
+            if (buttonIndex < 0 || dashboard == null || dashboard.timeToggleButtonGroup == null ||
+                dashboard.timeToggleButtonGroup.selectedButton != buttonIndex)
             {
                 return true;
             }
@@ -116,16 +124,17 @@ namespace InfraSpaceQoL
                 return;
             }
 
+            int buttonIndex = veryFastButtonIndex;
             Dashboard dashboard = WorldScripts.Inst.dashboard;
-            if (dashboard == null || dashboard.timeToggleButtonGroup == null)
+            if (buttonIndex < 0 || dashboard == null || dashboard.timeToggleButtonGroup == null)
             {
                 return;
             }
 
             List<ToggleButton> buttons = dashboard.timeToggleButtonGroup.GetToggleButtons();
-            if (buttons != null && buttons.Count > VeryFastButtonIndex)
+            if (buttons != null && buttons.Count > buttonIndex)
             {
-                dashboard.timeToggleButtonGroup.SetIsPressed(VeryFastButtonIndex, true, false);
+                dashboard.timeToggleButtonGroup.SetIsPressed(buttonIndex, true, false);
             }
         }
 
