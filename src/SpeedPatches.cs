@@ -81,6 +81,10 @@ namespace InfraSpaceQoL
                 TooltipHoverable tooltip = buttonObject.GetComponentInChildren<TooltipHoverable>(true);
                 if (tooltip != null)
                 {
+                    // The clone carries the original x2 localization keys. Start() reapplies
+                    // those keys later unless they are cleared before setting custom text.
+                    tooltip.titleCode = string.Empty;
+                    tooltip.descriptionCode = string.Empty;
                     tooltip.Init("Very Fast", "Game speed: 4x");
                 }
                 Debug.Log("[InfraSpaceQoL] Added the Very Fast (4x) dashboard speed button at index " + buttonIndex + ".");
