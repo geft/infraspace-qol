@@ -28,53 +28,73 @@ Set direct supply to `false` to disable it. Set the Red Science multiplier from 
 
 Set `ReleaseWorkersWhenAllOutputsFull` to `false` to disable automatic worker release. It defaults to `true`, including with an older settings file that has no Workforce section. Settings changes require restarting the game.
 
-## Install
+## Install from an installer package
 
-Install InfraSpace first. You do not need developer tools to install this mod.
+If someone shares a locally built installer package with you, you do **not** need this repository, Git, or developer tools:
 
-1. Open [Actions → Build installer](https://github.com/geft/infraspace-qol/actions/workflows/release.yml), select a successful run, and download its installer artifact. A build becomes available after a maintainer configures the runner described below and runs the workflow.
-2. Extract the artifact and keep `InfraSpaceQoLInstaller.exe`, `InfraSpaceQoL.dll`, `0Harmony.dll`, `config.json`, and `settings.json` together.
-3. Close InfraSpace, run `InfraSpaceQoLInstaller.exe`, and click **Install**. The installer displays the package version and preserves your existing settings.
+1. Install InfraSpace.
+2. Keep `InfraSpaceQoLInstaller.exe`, `InfraSpaceQoL.dll`, `0Harmony.dll`, `config.json`, and `settings.json` together in one folder.
+3. Close InfraSpace, run `InfraSpaceQoLInstaller.exe`, and click **Install**.
 4. Start InfraSpace and enable InfraSpace QoL in the game's Mods menu.
 
-For a local build, run the installer from `installer\bin\Release`. Installers and compiled files are generated outputs; they are not committed to this repository.
+The installer shows the package version and preserves existing settings when updating. This repository contains source code; compiled installers and DLLs are not committed. Builds run locally, with no GitHub Actions runner to configure.
 
-## Build
+## Build your own copy
 
-Build with the .NET SDK, the installed game's `InfraSpace_Data\Managed` assemblies, and `0Harmony.dll` from the official [ISModKit](https://github.com/DionicSoftware/ISModKit):
+Git is optional: use GitHub's **Code → Download ZIP**, extract the source, and open the extracted folder. You can also clone the repository if you prefer.
+
+One-time requirements on Windows:
+
+- Install InfraSpace through Steam.
+- Install [PowerShell 7](https://aka.ms/powershell-release).
+- Install a [.NET SDK](https://dotnet.microsoft.com/download), version 8 or newer, and the [.NET Framework 4.7.2 developer pack](https://dotnet.microsoft.com/download/dotnet-framework/net472).
+
+Double-click **`build.cmd`**, or run this from the source folder in PowerShell 7:
+
+```powershell
+pwsh -NoProfile -File .\build.ps1
+```
+
+The script finds InfraSpace in your Steam libraries, downloads the pinned Harmony DLL from the official [ISModKit](https://github.com/DionicSoftware/ISModKit) if needed, checks its SHA-256 checksum, builds the mod, runs regression checks, and prepares the installer. It reads game reference DLLs from your own installation. The first build requires internet access for Harmony and .NET package restore.
+
+After the build succeeds, close InfraSpace and run:
+
+```text
+installer\bin\Release\InfraSpaceQoLInstaller.exe
+```
+
+Local development builds keep the version unchanged. The installer folder contains the five files listed above; share that complete folder to let others install without building. The game reference assemblies are not included.
+
+For a custom install location or an offline Harmony copy, override the paths:
+
+```powershell
+pwsh -NoProfile -File .\build.ps1 `
+  -ManagedDir "D:\SteamLibrary\steamapps\common\InfraSpace\InfraSpace_Data\Managed" `
+  -HarmonyPath "C:\path\to\0Harmony.dll"
+```
+
+`-DotNetPath` selects a particular `dotnet.exe`. Harmony can also be found through the `ISModKitDir` environment variable or reused from an existing build. Nothing is installed into the game until you run the installer.
+
+The mod is built against InfraSpace `1.56.460`. Game updates can change Harmony patch targets. Direct Collection Center shipments use roads and trucks; rail freight is not covered.
+
+## Local development and versioning
+
+For compile-only iterations, use `dotnet build` directly with your game assembly and Harmony paths:
 
 ```powershell
 dotnet build .\InfraSpaceQoL.csproj -c Release `
   -p:InfraSpaceManagedDir="C:\Program Files (x86)\Steam\steamapps\common\InfraSpace\InfraSpace_Data\Managed" `
-  -p:HarmonyPath="C:\path\to\ISModKit\ExampleMods\CryoChambers\0Harmony.dll"
+  -p:HarmonyPath="C:\path\to\0Harmony.dll"
 ```
 
-The project was built against InfraSpace `1.56.460`. Game updates can change the Harmony patch targets. Direct Collection Center shipments use roads and trucks; rail freight is not covered.
+Run `pwsh -NoProfile -File .\tests\Regression.ps1` after building, or use `build.ps1` to build and test together. Run `installer\build.bat` to refresh only the installer; it rejects a DLL whose version does not match `config.json`.
 
-Run the regression checks with PowerShell 7 after building:
-
-```powershell
-pwsh -NoProfile -File .\tests\Regression.ps1
-```
-
-For local development, `pwsh -NoProfile -File .\build.ps1` builds the mod, runs regression checks, and refreshes the local installer **without changing the version**. It accepts `-DotNetPath`, `-ManagedDir`, and `-HarmonyPath`, like the release script. Direct `dotnet build` remains available for faster compile-only iterations.
-
-For updates, run the release script with PowerShell 7:
+To prepare a new version locally:
 
 ```powershell
 pwsh -NoProfile -File .\release.ps1
 ```
 
-Each successful local release increments the patch version (for example, `1.1.2` to `1.1.3`), builds the mod, runs regression checks, and refreshes `installer\bin\Release` with the installer and matching mod files. No ZIP is created. `config.json` is the version source for the mod DLL, installer, and installed metadata. The source version is restored if a step fails. Ordinary `dotnet build` runs keep the version unchanged.
+Each successful release increments the patch version (for example, `1.1.2` to `1.1.3`), builds and tests, and refreshes `installer\bin\Release`. Use `-Increment Minor`, `-Increment Major`, or `-Version major.minor.patch` when appropriate. It accepts the same dependency paths as `build.ps1`. `config.json` is the version source for the DLL, installer, and installed metadata. The source version is restored if a step fails. No ZIP is created.
 
-Use `-Increment Minor` or `-Increment Major` for larger releases. `-DotNetPath`, `-ManagedDir`, and `-HarmonyPath` select a particular SDK or game dependency location; Harmony defaults to `ISModKitDir` or the existing build's DLL. Run `installer\build.bat` to refresh only the installer and its files without incrementing the version; it rejects a mod DLL whose version does not match `config.json`.
-
-## GitHub Actions
-
-The **Build installer** workflow builds and tests the installer on a Windows self-hosted runner with InfraSpace installed. GitHub-hosted machines do not have the required game assemblies. Register a runner with the additional `infraspace` label, install PowerShell 7 and the .NET Framework 4.7.2 targeting pack, and set repository variable `INFRASPACE_HARMONY_PATH` to the runner's ISModKit `0Harmony.dll`. Set `INFRASPACE_MANAGED_DIR` if the game uses a different install location. The workflow installs the .NET SDK. See [GitHub's runner setup documentation](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/add-runners).
-
-Open **Actions → Build installer → Run workflow** on `main`. Its patch version is the source patch plus the workflow run number; reruns keep the same version. Version updates exist only in the runner checkout, and the workflow does not push commits. Local dev builds keep the source version; local `release.ps1` still increments it, or accepts `-Version major.minor.patch` explicitly.
-
-Download the resulting installer artifact from the workflow run and keep its five files together. Users need an installed copy of InfraSpace, but no SDK, runner, or separately downloaded game DLLs. GitHub packages Actions artifact downloads as ZIPs; this project does not create a separate release ZIP. The artifact contains only the installer, mod DLL, Harmony DLL, and two JSON files. The game reference assemblies stay on the build machine. The workflow uploads an artifact; it does not publish a GitHub Release.
-
-Build folders, EXEs, DLLs, and ZIPs are ignored by Git. Commit the source, scripts, and workflow. Builds on the self-hosted machine are manually triggered on `main`; pull requests do not run code on that machine.
+Commit source code, scripts, and version metadata. Build folders, EXEs, DLLs, and ZIPs are ignored by Git. Game assemblies and downloaded dependencies remain on the local machine.

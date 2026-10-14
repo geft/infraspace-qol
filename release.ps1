@@ -6,7 +6,7 @@ param(
     [ValidatePattern('^\d+\.\d+\.\d+$')]
     [string]$Version,
     [string]$DotNetPath = 'dotnet',
-    [string]$ManagedDir = 'C:\Program Files (x86)\Steam\steamapps\common\InfraSpace\InfraSpace_Data\Managed',
+    [string]$ManagedDir,
     [string]$HarmonyPath
 )
 
