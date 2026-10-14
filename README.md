@@ -6,6 +6,8 @@ Storehouses accept fixed resource categories, including concrete; there is no ma
 
 Storehouses receive overflow only: the supplying producer's output buffer or Collection/Distribution Center's stock must be at least 90% full before scheduling a storage delivery, with a full truck available. Only resources accepted by the Storehouse are affected. Goods already in transit do not count toward the supplier's threshold. Factory and lab deliveries remain eligible below this threshold. The overflow rule also applies when direct supply is disabled.
 
+Spaceship repairs can receive their final items even when fewer than a full truckload remain. Direct Collection Center shipments carry the exact remaining amount; Distribution Centers retain the game's final-load behavior. Items already in transit count toward repair demand.
+
 Producer deliveries into Collection Centers enforce the center's current collection radius at dispatch. Stale producer connections outside that radius are removed before choosing a destination. The radius uses horizontal distance between building positions, as in the game; roads can still take a longer route. This check remains enabled when direct supply is disabled. Existing trucks keep their destinations.
 
 Collection Centers, Distribution Centers, and ordinary producers prefer the nearest eligible Storehouse by road route length. A closer Storehouse must accept the resource, allow the supplier's district, have a usable road route, and have room for a full truck including deliveries already on the way. Native supplier radius and connection rules still apply. Trucks already dispatched keep their destinations.

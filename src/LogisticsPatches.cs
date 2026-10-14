@@ -238,6 +238,25 @@ namespace InfraSpaceQoL
                 consumer.productionLogic is ResearchProductionLogic) ? 0 : 1;
         }
 
+        private static bool AllowsFinalDelivery(ConsumerProducer consumer)
+        {
+            FactoryProductionLogic factory = consumer.productionLogic as FactoryProductionLogic;
+            // Native requests permit a single remaining item for these finite jobs.
+            return (factory != null && factory.HasSpaceshipLogicOverride()) ||
+                consumer.productionLogic is UpgradeProductionLogic;
+        }
+
+        internal static int GetDirectDeliveryAmount(ConsumerProducer consumer, int remaining, int fullOrderAmount)
+        {
+            if (remaining <= 0 || fullOrderAmount <= 0)
+            {
+                return 0;
+            }
+            return AllowsFinalDelivery(consumer)
+                ? Math.Min(remaining, fullOrderAmount)
+                : (remaining >= fullOrderAmount ? fullOrderAmount : 0);
+        }
+
         internal static float GetRequestPriority(ConsumerProducer consumer, int remaining, int capacity, int stored)
         {
             if (remaining <= 0)
@@ -298,7 +317,7 @@ namespace InfraSpaceQoL
                         int orderAmount = ConsumerProducer.GetOrderAmount(resource);
                         int outstanding = consumer.GetIncomingCarsResourceAmount(resource);
                         int remaining = consumable.amount - consumer.incomingStorage[i] - outstanding;
-                        if (orderAmount <= 0 || remaining < orderAmount)
+                        if (GetDirectDeliveryAmount(consumer, remaining, orderAmount) <= 0)
                         {
                             continue;
                         }
@@ -570,7 +589,8 @@ namespace InfraSpaceQoL
 
             ResourceCost cost = consumables[index];
             int remaining = cost.amount - consumer.incomingStorage[index] - consumer.GetIncomingCarsResourceAmount(resource);
-            if (remaining < orderAmount)
+            orderAmount = GetDirectDeliveryAmount(consumer, remaining, orderAmount);
+            if (orderAmount <= 0)
             {
                 return false;
             }
@@ -732,7 +752,11 @@ namespace InfraSpaceQoL
                 if (consumables[i].resource == resource)
                 {
                     int committed = consumer.incomingStorage[i] + consumer.GetIncomingCarsResourceAmount(resource);
-                    return consumables[i].amount - committed >= amount;
+                    int remaining = consumables[i].amount - committed;
+                    // Native distribution dispatch removes a full load from its source and
+                    // clamps arrived stock at the destination. Preserve that final-load
+                    // behavior for spaceship repairs and upgrades, including reservations.
+                    return AllowsFinalDelivery(consumer) ? remaining > 0 : remaining >= amount;
                 }
             }
             return false;

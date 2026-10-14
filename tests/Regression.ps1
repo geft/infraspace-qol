@@ -206,6 +206,35 @@ foreach ($invalidRadius in @([single]::NaN, [single]::PositiveInfinity, [single]
     Assert-Equal ($canCollect.Invoke($null, @($nearCenter, $producer))) $false 'Invalid radius rejected'
 }
 
+# Spaceship repair must finish at 348/350 even when a truck normally carries three.
+$shipConsumer = New-ConsumerForLogic ([FactoryProductionLogic])
+$shipConsumer.productionLogic.logicOverride = 'spaceship'
+$shipConsumer.building = New-LogisticsBuilding 0 0 0
+$shipConsumer.building.upgrades = [System.Collections.Generic.List[BuildingUpgrade]]::new()
+$shipConsumer.incomingStorage = [int[]]@(348)
+$shipConsumer.incomingCars = [System.Collections.Generic.HashSet[Car]]::new()
+$shipCosts = [System.Collections.Generic.List[ResourceCost]]::new()
+$shipCosts.Add([ResourceCost]::new($resource, 350))
+[FactoryProductionLogic].GetField('cachedConsumables', $instanceFlags).SetValue($shipConsumer.productionLogic, $shipCosts)
+$directAmount = $logistics.GetMethod('GetDirectDeliveryAmount', $flags)
+$hasRoom = $logistics.GetMethod('HasRoomForDelivery', $flags)
+Assert-Equal ($directAmount.Invoke($null, @($shipConsumer, 2, 3))) 2 'Direct repair shipment carries final two bars'
+Assert-Equal ($directAmount.Invoke($null, @($factoryConsumer, 2, 3))) 0 'Ordinary factory still requires full load'
+Assert-Equal ($directAmount.Invoke($null, @($shipConsumer, 5, 3))) 3 'Repair normally uses full loads'
+Assert-Equal ($directAmount.Invoke($null, @($shipConsumer, 0, 3))) 0 'Completed repair requests nothing'
+Assert-Equal ($hasRoom.Invoke($null, @($shipConsumer, $resource, 3))) $true 'Native distribution final load allowed'
+$finalCar = [Runtime.Serialization.FormatterServices]::GetUninitializedObject([Car])
+$finalCar.resource = $resource
+$finalCar.amount = 2
+$shipConsumer.AddIncomingCar($finalCar)
+Assert-Equal ($hasRoom.Invoke($null, @($shipConsumer, $resource, 3))) $false 'Final bars already in transit prevent duplicate load'
+$shipConsumer.RemoveIncomingCar($finalCar)
+$shipConsumer.incomingStorage[0] = 350
+Assert-Equal ($hasRoom.Invoke($null, @($shipConsumer, $resource, 3))) $false 'Completed repair blocks extra native load'
+$shipConsumer.incomingStorage[0] = 348
+$shipConsumer.productionLogic.logicOverride = $null
+Assert-Equal ($hasRoom.Invoke($null, @($shipConsumer, $resource, 3))) $false 'Ordinary input capacity remains enforced'
+
 # Storage is an overflow outlet, based on arrived stock in the sending buffer.
 $nearlyFull = $logistics.GetMethod('IsNearlyFull', $flags)
 $overflowStock = $logistics.GetMethod('HasOverflowStock', $flags)
