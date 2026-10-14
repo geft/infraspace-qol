@@ -114,6 +114,71 @@ namespace InfraSpaceQoL
         private static int firstShipmentLogged;
         private const float StorehouseRequestPriority = 0.25f;
 
+        internal static bool CanCollectFromProducer(CollectionProductionLogic center, ConsumerProducer producer)
+        {
+            if (center == null || center.resource == null || center.consumerProducer == null ||
+                center.consumerProducer.building == null || producer == null || producer.building == null ||
+                !center.consumerProducer.building.IsValidAndBuilt() || !producer.building.IsValidAndBuilt() ||
+                producer.outgoingResources == null || !producer.outgoingResources.Contains(center.resource) ||
+                float.IsNaN(center.collectionRadius) || float.IsInfinity(center.collectionRadius) ||
+                center.collectionRadius < 0f)
+            {
+                return false;
+            }
+
+            // Match the game's connection lookup: horizontal distance between building
+            // positions, rather than truck route length or height on the terrain.
+            Vector3 offset = producer.building.GetPosition() - center.consumerProducer.building.GetPosition();
+            return offset.x * offset.x + offset.z * offset.z <= center.collectionRadius * center.collectionRadius;
+        }
+
+        internal static void PruneCollectionConnections(ConsumerProducer producer)
+        {
+            if (producer == null || producer.connectedCollectionCenters == null)
+            {
+                return;
+            }
+            foreach (KeyValuePair<Resource, List<CollectionProductionLogic>> connection in producer.connectedCollectionCenters)
+            {
+                connection.Value.RemoveAll(center =>
+                {
+                    if (center != null && center.resource == connection.Key && CanCollectFromProducer(center, producer))
+                    {
+                        return false;
+                    }
+                    if (center != null && center.connectedProducers != null &&
+                        !CanCollectFromProducer(center, producer))
+                    {
+                        center.connectedProducers.Remove(producer);
+                    }
+                    return true;
+                });
+            }
+        }
+
+        public static void ProducerOutgoingPrefix(ConsumerProducer __instance)
+        {
+            if (__instance == null || __instance.building == null ||
+                (Old.GetSimulator().GetSimulationFrame() + __instance.building.GetID()) % 50 != 0)
+            {
+                return;
+            }
+            // Empty stale lists before native dispatch chooses its Collection Center branch,
+            // allowing ordinary delivery fallback when no center remains in range.
+            PruneCollectionConnections(__instance);
+        }
+
+        public static bool CollectionReceivePrefix(CollectionProductionLogic __instance,
+            ConsumerProducer producer, int amount, ref bool __result)
+        {
+            if (amount <= 0 || !CanCollectFromProducer(__instance, producer))
+            {
+                __result = false;
+                return false;
+            }
+            return true;
+        }
+
         internal static bool IsSupportedDestination(ConsumerProducer consumer)
         {
             return consumer != null &&

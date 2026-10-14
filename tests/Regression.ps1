@@ -135,4 +135,66 @@ Assert-Equal $nativeConsumers[0].second ([single]1.0) 'Factory priority preserve
 Assert-Equal $nativeConsumers[1].first $nearConsumer 'Nearest storage retained'
 $filterStores.Invoke($null, @($nativeConsumers.PSObject.BaseObject, $null))
 Assert-Equal $nativeConsumers.Count 1 'No eligible storage preserves other demand'
-Write-Output 'PASS: decimal costs, JSON parsing, incoming reservations, field compatibility, factory priority, and nearest Storehouse routing checks.'
+
+# Exercise the live collection eligibility and dispatch guard without Unity's simulation.
+$instanceFlags = [Reflection.BindingFlags]'Instance,NonPublic'
+function New-LogisticsBuilding([single]$x, [single]$y, [single]$z) {
+    $building = [Runtime.Serialization.FormatterServices]::GetUninitializedObject([Building])
+    [Building].GetField('position', $instanceFlags).SetValue($building, [UnityEngine.Vector3]::new($x, $y, $z))
+    [Building].GetField('isValid', $instanceFlags).SetValue($building, $true)
+    [Building].GetField('isBuilt', $instanceFlags).SetValue($building, $true)
+    return $building
+}
+$canCollect = $logistics.GetMethod('CanCollectFromProducer', $flags)
+$pruneConnections = $logistics.GetMethod('PruneCollectionConnections', $flags)
+$receivePrefix = $logistics.GetMethod('CollectionReceivePrefix', [Reflection.BindingFlags]'Static,Public')
+$producer = New-ConsumerForLogic ([FactoryProductionLogic])
+$producer.building = New-LogisticsBuilding 6 500 8
+$producer.outgoingResources = [Resource[]]@($resource)
+$producer.connectedCollectionCenters = [System.Collections.Generic.Dictionary[Resource,System.Collections.Generic.List[CollectionProductionLogic]]]::new()
+$centerConsumer = New-ConsumerForLogic ([CollectionProductionLogic])
+$centerConsumer.building = New-LogisticsBuilding 0 0 0
+$center = $centerConsumer.productionLogic
+$center.consumerProducer = $centerConsumer
+$center.resource = $resource
+$center.collectionRadius = 10
+$center.connectedProducers = [System.Collections.Generic.HashSet[ConsumerProducer]]::new()
+Assert-Equal ($canCollect.Invoke($null, @($center, $producer))) $true 'Radius boundary included and terrain height ignored'
+$dispatchArgs = [object[]]@($center, $producer, 3, $false)
+Assert-Equal ($receivePrefix.Invoke($null, $dispatchArgs)) $true 'In-radius delivery reaches native dispatch'
+$center.collectionRadius = 9
+Assert-Equal ($canCollect.Invoke($null, @($center, $producer))) $false 'Radius shrink rejects formerly connected producer'
+$dispatchArgs = [object[]]@($center, $producer, 3, $true)
+Assert-Equal ($receivePrefix.Invoke($null, $dispatchArgs)) $false 'Out-of-radius dispatch skipped'
+Assert-Equal $dispatchArgs[3] $false 'Rejected delivery reports failure without spending stock'
+$nearCenterConsumer = New-ConsumerForLogic ([CollectionProductionLogic])
+$nearCenterConsumer.building = New-LogisticsBuilding 6 0 8
+$nearCenter = $nearCenterConsumer.productionLogic
+$nearCenter.consumerProducer = $nearCenterConsumer
+$nearCenter.resource = $resource
+$nearCenter.collectionRadius = 5
+$nearCenter.connectedProducers = [System.Collections.Generic.HashSet[ConsumerProducer]]::new()
+$centers = [System.Collections.Generic.List[CollectionProductionLogic]]::new()
+$centers.Add($center)
+$centers.Add($nearCenter)
+$producer.connectedCollectionCenters.Add($resource, $centers)
+$center.connectedProducers.Add($producer) | Out-Null
+$nearCenter.connectedProducers.Add($producer) | Out-Null
+$pruneConnections.Invoke($null, @($producer))
+Assert-Equal $centers.Count 1 'Stale distant connection removed'
+Assert-Equal $centers[0] $nearCenter 'Eligible local connection preserved'
+Assert-Equal ($center.connectedProducers.Contains($producer)) $false 'Stale reverse connection removed'
+Assert-Equal ($nearCenter.connectedProducers.Contains($producer)) $true 'Local reverse connection preserved'
+[Building].GetField('isBuilt', $instanceFlags).SetValue($nearCenterConsumer.building, $false)
+$pruneConnections.Invoke($null, @($producer))
+Assert-Equal $centers.Count 0 'No eligible collection center leaves native delivery fallback available'
+[Building].GetField('isBuilt', $instanceFlags).SetValue($nearCenterConsumer.building, $true)
+$otherResource = [Runtime.Serialization.FormatterServices]::GetUninitializedObject([Resource])
+$nearCenter.resource = $otherResource
+Assert-Equal ($canCollect.Invoke($null, @($nearCenter, $producer))) $false 'Resource mismatch rejected'
+$nearCenter.resource = $resource
+foreach ($invalidRadius in @([single]::NaN, [single]::PositiveInfinity, [single]-1)) {
+    $nearCenter.collectionRadius = $invalidRadius
+    Assert-Equal ($canCollect.Invoke($null, @($nearCenter, $producer))) $false 'Invalid radius rejected'
+}
+Write-Output 'PASS: research costs, reservations, compatibility, storage routing, and live Collection Center radius enforcement.'
