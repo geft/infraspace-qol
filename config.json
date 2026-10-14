@@ -1,7 +1,7 @@
 {
   "name": "InfraSpaceQoL",
-  "version": "1.0.1",
+  "version": "1.1.2",
   "author": "GJ",
   "url": "",
-  "description": "Adds 4x Very Fast speed, prioritized Collection Center supply, and configurable Red Science pack costs."
+  "description": "Adds 4x speed, prioritized Collection Center supply, configurable Red Science costs, and automatic worker release when all factory outputs are full."
 }

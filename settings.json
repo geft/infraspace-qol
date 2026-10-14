@@ -4,5 +4,8 @@
   },
   "Research": {
     "RedScienceCostMultiplier": 0.5
+  },
+  "Workforce": {
+    "ReleaseWorkersWhenAllOutputsFull": true
   }
 }

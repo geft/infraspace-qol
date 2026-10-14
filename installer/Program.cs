@@ -93,7 +93,9 @@ namespace InfraSpaceQoLInstaller
             this.packageDirectory = packageDirectory;
             this.installDirectory = installDirectory;
 
-            Text = "InfraSpace QoL Installer";
+            string packageVersion = System.Reflection.AssemblyName.GetAssemblyName(
+                Path.Combine(packageDirectory, "InfraSpaceQoL.dll")).Version.ToString(3);
+            Text = "InfraSpace QoL Installer " + packageVersion;
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -103,7 +105,7 @@ namespace InfraSpaceQoLInstaller
 
             Label title = new Label
             {
-                Text = "Install InfraSpace QoL",
+                Text = "Install InfraSpace QoL " + packageVersion,
                 Font = new Font("Segoe UI", 15F, FontStyle.Bold),
                 Location = new Point(18, 16),
                 Size = new Size(520, 32)
@@ -183,6 +185,7 @@ namespace InfraSpaceQoLInstaller
                 Size = new Size(90, 28),
                 DialogResult = DialogResult.Cancel
             };
+            closeButton.Click += delegate { Close(); };
             Controls.Add(closeButton);
             CancelButton = closeButton;
         }

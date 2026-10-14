@@ -14,6 +14,9 @@ namespace InfraSpaceQoL
         [JsonProperty("Research")]
         public ResearchSettings Research = new ResearchSettings();
 
+        [JsonProperty("Workforce")]
+        public WorkforceSettings Workforce = new WorkforceSettings();
+
         internal static ModSettings Current { get; private set; } = new ModSettings();
 
         internal static void Load()
@@ -43,6 +46,10 @@ namespace InfraSpaceQoL
                 {
                     settings.Research = new ResearchSettings();
                 }
+                if (settings.Workforce == null)
+                {
+                    settings.Workforce = new WorkforceSettings();
+                }
                 if (settings.Research.RedScienceCostMultiplier < 0m ||
                     settings.Research.RedScienceCostMultiplier > 1m)
                 {
@@ -70,5 +77,11 @@ namespace InfraSpaceQoL
     {
         [JsonProperty("RedScienceCostMultiplier")]
         public decimal RedScienceCostMultiplier = 0.5m;
+    }
+
+    internal sealed class WorkforceSettings
+    {
+        [JsonProperty("ReleaseWorkersWhenAllOutputsFull")]
+        public bool ReleaseWorkersWhenAllOutputsFull = true;
     }
 }

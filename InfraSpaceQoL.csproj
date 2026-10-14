@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
-    <Version>1.0.1</Version>
+    <Version>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/config.json')), '&quot;version&quot;\s*:\s*&quot;([^&quot;]+)&quot;').Groups[1].Value)</Version>
     <AssemblyName>InfraSpaceQoL</AssemblyName>
     <RootNamespace>InfraSpaceQoL</RootNamespace>
     <LangVersion>7.3</LangVersion>
@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <Compile Remove="installer\**\*.cs" />
+    <Compile Remove="tests\**\*.cs" />
     <Reference Include="0Harmony">
       <HintPath>$(HarmonyPath)</HintPath>
       <Private>true</Private>

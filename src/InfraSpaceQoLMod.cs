@@ -20,21 +20,32 @@ namespace InfraSpaceQoL
 
             ModSettings.Load();
             var patches = new List<PatchPlan>();
+            if (ModSettings.Current.Workforce.ReleaseWorkersWhenAllOutputsFull)
+            {
+                RequireField(typeof(Market), "industries", typeof(Dictionary<Resource, List<FactoryProductionLogic>>));
+                RequireField(typeof(Market), "industriesMinHeap", typeof(Dictionary<Resource, Heap<FactoryProductionLogic>>));
+                RequireField(typeof(Market), "industriesMaxHeap", typeof(Dictionary<Resource, Heap<FactoryProductionLogic>>));
+                RequireField(typeof(Market), "currentlyWorkingWorkersPerIndustry", typeof(Dictionary<Resource, int>));
+                RequireField(typeof(Market), "unemployedWorkers", typeof(List<Worker>));
+                Plan(patches, typeof(Market), "CheckEmployment", typeof(WorkforcePatches),
+                    "CheckEmploymentPrefix", null, "CheckEmploymentFinalizer");
+            }
             Plan(patches, typeof(Dashboard), "Start", typeof(SpeedPatches), null, "DashboardStartPostfix", null);
             Plan(patches, typeof(Dashboard), "StartAfterLoad", typeof(SpeedPatches), null, "DashboardStartAfterLoadPostfix", null);
             Plan(patches, typeof(TimeManager), "ButtonSelectionChanged", typeof(SpeedPatches), "TimeButtonSelectionPrefix", null, null);
             Plan(patches, typeof(TimeManager), "SetTimeState", typeof(SpeedPatches), null, "TimeStatePostfix", null);
             Plan(patches, typeof(ConsumerProducer), "UpdateOutgoingTraffic", typeof(LogisticsPatches), "ProducerOutgoingPrefix", null, null);
             Plan(patches, typeof(CollectionProductionLogic), "TryStartDeliveryToCollectionCenter", typeof(LogisticsPatches), "CollectionReceivePrefix", null, null);
+            Plan(patches, typeof(OrderManager), "GetInterestedConsumers", typeof(LogisticsPatches), null, "InterestedConsumersPostfix", null);
+            Plan(patches, typeof(OrderManager), "SuggestDelivery", typeof(LogisticsPatches), "DeliverySuggestionPrefix", null, null);
+            Plan(patches, typeof(DistributionProductionLogic), "TrySendCar", typeof(LogisticsPatches), "DistributionDispatchPrefix", null, "DistributionDispatchFinalizer");
 
             if (ModSettings.Current.Logistics.DirectCollectionSupply)
             {
                 Plan(patches, typeof(ConsumerProducer), "RequestResources", typeof(LogisticsPatches), "RequestPrefix", "RequestPostfix", null);
                 Plan(patches, typeof(ConsumerProducer), "Destroy", typeof(LogisticsPatches), null, "ConsumerDestroyedPostfix", null);
                 Plan(patches, typeof(OrderManager), "UpdateSimulationThread", typeof(LogisticsPatches), null, "OrderManagerPostfix", null);
-                Plan(patches, typeof(OrderManager), "GetInterestedConsumers", typeof(LogisticsPatches), null, "InterestedConsumersPostfix", null);
                 Plan(patches, typeof(CollectionProductionLogic), "TryStartDeliveryToDistributionCenter", typeof(LogisticsPatches), "CollectionDispatchPrefix", null, "CollectionDispatchFinalizer");
-                Plan(patches, typeof(DistributionProductionLogic), "TrySendCar", typeof(LogisticsPatches), "DistributionDispatchPrefix", null, "DistributionDispatchFinalizer");
             }
 
             if (ModSettings.Current.Research.RedScienceCostMultiplier < 1m)
@@ -80,6 +91,7 @@ namespace InfraSpaceQoL
             }
             patchesApplied = true;
             Debug.Log("[InfraSpaceQoL] Loaded. Direct Collection Supply=" + ModSettings.Current.Logistics.DirectCollectionSupply +
+                      ", Release workers when all outputs full=" + ModSettings.Current.Workforce.ReleaseWorkersWhenAllOutputsFull +
                       ", Red Science multiplier=" + ModSettings.Current.Research.RedScienceCostMultiplier.ToString("0.###") + ".");
         }
 

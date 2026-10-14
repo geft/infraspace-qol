@@ -75,7 +75,7 @@ foreach ($field in @(
     Assert-Equal $rejected $true 'Incompatible field rejected'
 }
 
-# Keep Collection Center truck targets limited to factories and storage, with factories first.
+# Collection Center deliveries must reach factories and labs before surplus storage.
 $logistics = $mod.GetType('InfraSpaceQoL.LogisticsPatches', $true)
 $isSupportedDestination = $logistics.GetMethod('IsSupportedDestination', $flags)
 $getDestinationPriority = $logistics.GetMethod('GetDestinationPriority', $flags)
@@ -87,11 +87,19 @@ function New-ConsumerForLogic($logicType) {
 $factoryConsumer = New-ConsumerForLogic ([FactoryProductionLogic])
 $storehouseConsumer = New-ConsumerForLogic ([StorehouseProductionLogic])
 $distributionConsumer = New-ConsumerForLogic ([DistributionProductionLogic])
+$labConsumer = New-ConsumerForLogic ([ResearchProductionLogic])
 Assert-Equal ($isSupportedDestination.Invoke($null, @($factoryConsumer))) $true 'Factory direct destination'
 Assert-Equal ($isSupportedDestination.Invoke($null, @($storehouseConsumer))) $true 'Storehouse direct destination'
+Assert-Equal ($isSupportedDestination.Invoke($null, @($labConsumer))) $true 'Research lab can receive collected science packs'
 Assert-Equal ($isSupportedDestination.Invoke($null, @($distributionConsumer))) $false 'Distribution center excluded as direct destination'
 Assert-Equal ($getDestinationPriority.Invoke($null, @($factoryConsumer))) 0 'Factory destination priority'
+Assert-Equal ($getDestinationPriority.Invoke($null, @($labConsumer))) 0 'Research lab precedes surplus storage'
 Assert-Equal ($getDestinationPriority.Invoke($null, @($storehouseConsumer))) 1 'Storehouse fallback priority'
+$requestPriority = $logistics.GetMethod('GetRequestPriority', $flags)
+Assert-Equal ($requestPriority.Invoke($null, @($labConsumer, 10, 10, 0))) ([single]1) 'Empty lab science input has native urgent priority'
+Assert-Equal ($requestPriority.Invoke($null, @($labConsumer, 9, 10, 1))) ([single]0.8125) 'Lab priority decreases as packs arrive'
+Assert-Equal ($requestPriority.Invoke($null, @($labConsumer, 6, 10, 4))) ([single]0.25) 'Stocked lab uses native minimum priority'
+Assert-Equal ($requestPriority.Invoke($null, @($labConsumer, 0, 10, 10))) ([single]0) 'Full science input does not request more packs'
 
 # A newer, closer Storehouse must win even when an older distant one is listed first.
 $routeType = $logistics.GetNestedType('StorehouseRoute', [Reflection.BindingFlags]'NonPublic')
@@ -197,4 +205,65 @@ foreach ($invalidRadius in @([single]::NaN, [single]::PositiveInfinity, [single]
     $nearCenter.collectionRadius = $invalidRadius
     Assert-Equal ($canCollect.Invoke($null, @($nearCenter, $producer))) $false 'Invalid radius rejected'
 }
-Write-Output 'PASS: research costs, reservations, compatibility, storage routing, and live Collection Center radius enforcement.'
+
+# Storage is an overflow outlet, based on arrived stock in the sending buffer.
+$nearlyFull = $logistics.GetMethod('IsNearlyFull', $flags)
+$overflowStock = $logistics.GetMethod('HasOverflowStock', $flags)
+foreach ($case in @(
+    @(89, 100, 3, $false), @(90, 100, 3, $true), @(100, 100, 3, $true),
+    @(8, 9, 3, $false), @(9, 9, 3, $true), @(2, 2, 3, $false),
+    @(0, 0, 3, $false), @(100, 100, 0, $false)
+)) {
+    Assert-Equal ($nearlyFull.Invoke($null, [object[]]@($case[0], $case[1], $case[2]))) $case[3] 'Overflow threshold and full-truck availability'
+}
+[Resource]::Init([Func[int]]{ 0 })
+$resource.stackSize = 100
+$producer.outgoingStorage = [int[]]@(89)
+Assert-Equal ($overflowStock.Invoke($null, @($producer, $resource, 3))) $false 'Producer below threshold retains output'
+$producer.outgoingStorage[0] = 90
+Assert-Equal ($overflowStock.Invoke($null, @($producer, $resource, 3))) $true 'Producer at threshold can send overflow'
+[Resource]::Init([Func[int]]{ 100 })
+Assert-Equal ($overflowStock.Invoke($null, @($producer, $resource, 3))) $false 'Producer threshold includes upgraded output capacity'
+[Resource]::Init([Func[int]]{ 0 })
+$center.playerStorageLimit = 200
+$centerConsumer.incomingStorage = [int[]]@(179)
+Assert-Equal ($overflowStock.Invoke($null, @($centerConsumer, $resource, 3))) $false 'Collection Center below threshold retains stock'
+$centerConsumer.incomingStorage[0] = 180
+Assert-Equal ($overflowStock.Invoke($null, @($centerConsumer, $resource, 3))) $true 'Collection Center uses configured capacity'
+Assert-Equal ($overflowStock.Invoke($null, @($centerConsumer, $otherResource, 3))) $false 'Other resource cannot use collection stock'
+$distribution = $distributionConsumer.productionLogic
+$distribution.resource = $resource
+$distribution.playerStorageLimit = 200
+$distributionConsumer.incomingStorage = [int[]]@(179)
+Assert-Equal ($overflowStock.Invoke($null, @($distributionConsumer, $resource, 3))) $false 'Distribution Center cannot bypass overflow policy'
+$distributionConsumer.incomingStorage[0] = 180
+Assert-Equal ($overflowStock.Invoke($null, @($distributionConsumer, $resource, 3))) $true 'Distribution overflow allowed at threshold'
+$suggestPrefix = $logistics.GetMethod('DeliverySuggestionPrefix', [Reflection.BindingFlags]'Static,Public')
+$producer.outgoingStorage[0] = 89
+$storageSuggestion = [DeliverySuggestion]::new($producer, $storehouseConsumer, $resource, 3, $null)
+Assert-Equal ($suggestPrefix.Invoke($null, @($storageSuggestion))) $false 'Native storage suggestion blocked below threshold'
+$factorySuggestion = [DeliverySuggestion]::new($producer, $factoryConsumer, $resource, 3, $null)
+$labSuggestion = [DeliverySuggestion]::new($producer, $labConsumer, $resource, 3, $null)
+Assert-Equal ($suggestPrefix.Invoke($null, @($factorySuggestion))) $true 'Factory delivery unaffected by overflow rule'
+Assert-Equal ($suggestPrefix.Invoke($null, @($labSuggestion))) $true 'Research delivery unaffected by overflow rule'
+$producer.outgoingStorage[0] = 90
+Assert-Equal ($suggestPrefix.Invoke($null, @($storageSuggestion))) $true 'Native storage suggestion allowed for overflow'
+$producer.outgoingStorage[0] -= 3
+Assert-Equal ($suggestPrefix.Invoke($null, @($storageSuggestion))) $false 'Storage stops draining once source falls below threshold'
+. (Join-Path $PSScriptRoot 'WorkforceRegression.ps1')
+# Harmony runs in the game's .NET Framework runtime, independently of PowerShell's CLR.
+$smokeExe = Join-Path ([IO.Path]::GetTempPath()) ('InfraSpaceWorkforceSmoke-' + [guid]::NewGuid().ToString('N') + '.exe')
+try {
+    $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+    $references = @('old', 'DionicCore', 'DionicGame', 'InfraSpaceCore', 'UnityEngine.CoreModule') | ForEach-Object {
+        '/reference:' + (Join-Path $ManagedDir ($_ + '.dll'))
+    }
+    & $compiler /nologo /target:exe /optimize+ "/out:$smokeExe" @references "/reference:$(Join-Path $output '0Harmony.dll')" (Join-Path $PSScriptRoot 'WorkforcePatchSmoke.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Workforce patch smoke compilation failed.' }
+    & $smokeExe $output $ManagedDir
+    if ($LASTEXITCODE -ne 0) { throw 'Workforce Harmony smoke test failed.' }
+}
+finally {
+    if (Test-Path -LiteralPath $smokeExe) { Remove-Item -LiteralPath $smokeExe }
+}
+Write-Output 'PASS: research supply, costs, reservations, compatibility, radius enforcement, nearest storage, and overflow-only storage.'
