@@ -20,6 +20,10 @@ namespace InfraSpaceQoL
 
             ModSettings.Load();
             var patches = new List<PatchPlan>();
+            Plan(patches, typeof(BuildingDescription), "GetNewProductionLogic", typeof(MonumentCostPatches),
+                null, "NewProductionLogicPostfix", null);
+            Plan(patches, typeof(UpgradeProductionLogic), "SemiLateInit", typeof(MonumentCostPatches),
+                "UpgradeInitPrefix", null, null);
             if (ModSettings.Current.Terraforming.ExpandWhenLocalAreaSaturated)
             {
                 RequireField(typeof(TerraformBuildingsManager), "terraformers", typeof(Dictionary<long, Terraformer>));

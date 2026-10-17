@@ -20,6 +20,8 @@ function Assert-Equal($actual, $expected, $label) {
     if ($actual -ne $expected) { throw "$label`: expected $expected, got $actual" }
 }
 
+. (Join-Path $PSScriptRoot 'MonumentCostRegression.ps1')
+
 foreach ($rate in @('0', '0.07', '0.14', '0.5', '1')) {
     $settings = [Newtonsoft.Json.JsonConvert]::DeserializeObject(
         ('{"Research":{"RedScienceCostMultiplier":' + $rate + '}}'), $settingsType)

@@ -14,6 +14,8 @@ Collection Centers, Distribution Centers, and ordinary producers prefer the near
 
 ## Configure
 
+The Magnetic Field Generator construction stage that normally requires 250 adamantite now requires **75**. This applies to new construction and unfinished stages loaded from a save. Materials already delivered remain credited; other materials and monument costs are unchanged.
+
 Terraformers automatically double their effective radius once every playable terrain cell inside their current radius reaches 99% total terraforming progress. Coverage grows in steps: `1x → 2x → 4x → 8x`, stopping once it covers the playable map. Each larger circle must fill before the radius doubles again. This requires enough combined terraforming types and efficiency to reach 99%; a lone early-game terraforming type cannot trigger expansion. Buildings still need their normal inputs, power, and staffing. Expanded coverage uses the game's normal terraforming rate and contribution calculations. Building range indicators continue to show their original radius.
 
 Expansion is reconstructed from terrain progress, including when loading an existing save. Losing enough production for local progress to fall below 99% can shrink coverage again, and the game can then decay unsupported terrain. Set `Terraforming.ExpandWhenLocalAreaSaturated` to `false` and restart to restore normal coverage. Expansion defaults to `true`, including with an older settings file that has no Terraforming section.
