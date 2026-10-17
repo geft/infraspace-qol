@@ -18,6 +18,8 @@ Collection Centers, Distribution Centers, and ordinary producers prefer the near
 
 ## Configure
 
+The completed Magnetic Field Generator defaults to **1,000 MW instead of 5,000 MW**. Set its power requirement in the installer’s **Terraforming** tab or with `Terraforming.MagneticFieldGeneratorPowerMW` (1–5000); use 5000 for the normal game requirement. This applies to existing generators when loading a save and to new generators. Its inputs, staffing, and field coverage are unchanged.
+
 The Magnetic Field Generator upfront placement cost is **75 adamantite instead of 250**. This applies when loading existing saves as well as starting a new game. Other materials and subsequent construction stages are unchanged. Previously spent placement materials are not refunded.
 
 Terraformers automatically double their effective radius once at least **95% of the playable terrain cells inside their current radius reach 99% total terraforming progress**. Small unfinished edges or holes no longer block expansion. Coverage grows in steps: `1x â†’ 2x â†’ 4x â†’ 8x`, stopping once it covers the playable map. Each larger circle must meet the same 95% area threshold before the radius doubles again. This requires enough combined terraforming types and efficiency to reach 99%; a lone early-game terraforming type cannot trigger expansion. Buildings still need their normal inputs, power, and staffing. Expanded coverage uses the game's normal terraforming rate and contribution calculations. Building range indicators continue to show their original radius.
@@ -41,9 +43,8 @@ Use the installer's feature tabs to adjust every feature, or edit `settings.json
   },
   "Research": { "RedScienceCostMultiplier": 0.5, "DoubleRedScienceOutput": true },
   "Workforce": { "ReleaseWorkersWhenAllOutputsFull": true },
-  "Terraforming": { "ExpandWhenLocalAreaSaturated": true },
-  "Laser": { "AutoClearObstacles": true, "SpeedMultiplier": 3 },
-  "Monuments": { "ReduceMagneticFieldGeneratorCost": true }
+  "Terraforming": { "ExpandWhenLocalAreaSaturated": true, "ReduceMagneticFieldGeneratorCost": true, "MagneticFieldGeneratorPowerMW": 1000 },
+  "Laser": { "AutoClearObstacles": true, "SpeedMultiplier": 3 }
 }
 ```
 
@@ -59,7 +60,7 @@ Additional controls:
 | `Logistics.PreferNearestStorehouse` | Leave native storage selection in effect; direct supply can use any eligible Storehouse. |
 | `Logistics.EnforceCollectionRadius` | Disable the extra radius check and stale connection cleanup. |
 | `Logistics.AllowPartialFinalLoads` | Require full loads for direct construction, upgrade and spaceship repair deliveries; the last few items may then need native supply. |
-| `Monuments.ReduceMagneticFieldGeneratorCost` | Restore the generator's upfront placement cost to 250 adamantite. |
+| `Terraforming.ReduceMagneticFieldGeneratorCost` | Restore the generator's upfront placement cost to 250 adamantite. |
 
 Storage selection, overflow rules, and the radius check are independently configurable, including with direct supply disabled. Existing trucks keep their destinations. Disabling a feature takes effect after restarting the game; it does not undo completed construction, research, or cleared obstacles.
 
@@ -78,7 +79,7 @@ If someone shares a locally built installer package with you, you do **not** nee
 1. Install InfraSpace.
 2. Keep `InfraSpaceQoLInstaller.exe`, `InfraSpaceQoL.dll`, `0Harmony.dll`, `config.json`, and `settings.json` together in one folder.
 3. Close InfraSpace and run `InfraSpaceQoLInstaller.exe`.
-4. Review the **Speed**, **Logistics**, **Research**, **Workforce**, **Terraforming**, **Laser**, and **Monuments** tabs. Scroll within a tab if needed. Change the checkboxes and numeric values, then click **Install**.
+4. Review the **Speed**, **Logistics**, **Research**, **Workforce**, **Terraforming**, and **Laser** tabs. Scroll within a tab if needed. Change the checkboxes and numeric values, then click **Install**.
 5. Start InfraSpace and enable InfraSpace QoL in the game's Mods menu.
 
 The installer shows the package version and loads installed settings when updating; new installs use the package settings. New options use the same defaults as the mod. **Install** writes the choices shown, preserves unknown settings keys, and keeps the previous settings as `settings.json.bak`. Closing the installer without installing saves nothing. Invalid JSON or setting values block installation with an error so you can correct the file first. Rerun the installer to change settings later, with the game closed.
@@ -146,3 +147,5 @@ pwsh -NoProfile -File .\release.ps1
 Each successful release increments the patch version (for example, `1.1.2` to `1.1.3`), builds and tests, and refreshes `installer\bin\Release`. Use `-Increment Minor`, `-Increment Major`, or `-Version major.minor.patch` when appropriate. It accepts the same dependency paths as `build.ps1`. `config.json` is the version source for the DLL, installer, and installed metadata. The source version is restored if a step fails. No ZIP is created.
 
 Commit source code, scripts, and version metadata. Build folders, EXEs, DLLs, and ZIPs are ignored by Git. Game assemblies and downloaded dependencies remain on the local machine.
+
+Older `Monuments.ReduceMagneticFieldGeneratorCost` settings migrate to **Terraforming**, preserving your preference. An explicit Terraforming value takes precedence.

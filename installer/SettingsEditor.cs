@@ -20,6 +20,20 @@ namespace InfraSpaceQoLInstaller
         {
             document = serializer.DeserializeObject(File.ReadAllText(path)) as Dictionary<string, object>;
             if (document == null) throw new InvalidDataException("Settings must contain a JSON object: " + path);
+            object legacySection;
+            if (document.TryGetValue("Monuments", out legacySection))
+            {
+                var legacy = legacySection as Dictionary<string, object>;
+                object value;
+                if (legacy != null && legacy.TryGetValue("ReduceMagneticFieldGeneratorCost", out value))
+                {
+                    var terraforming = GetSection("Terraforming");
+                    if (!terraforming.ContainsKey("ReduceMagneticFieldGeneratorCost"))
+                        terraforming["ReduceMagneticFieldGeneratorCost"] = value;
+                    legacy.Remove("ReduceMagneticFieldGeneratorCost");
+                    if (legacy.Count == 0) document.Remove("Monuments");
+                }
+            }
         }
 
         internal object Read(string section, FieldInfo field, object defaults)

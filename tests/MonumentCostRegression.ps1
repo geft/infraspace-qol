@@ -38,3 +38,29 @@ try {
     Assert-Equal $description.costs[2].amount 7500 'Previously loaded definition updated at mod startup'
 }
 finally { [Old]::buildingModule = $savedModule }
+
+# Saved factories refresh recipes through this manager; construction previews
+# read the cached factory logic instead. Both must use the same power demand.
+$generatorPower = $monument.GetMethod('GeneratorPowerPostfix')
+$previewPower = $monument.GetMethod('GeneratorPreviewPostfix')
+foreach ($name in @('magneticFieldGenerator_Stage4', 'ammoniaExtractor', 'magneticFieldGenerator_Stage0')) {
+    $recipe = [ProductionDefinition]::new()
+    $recipe.powerNeeded = 5000
+    $recipe.maxWorkers = 200
+    $recipe.timeSteps = 1500000
+    $generatorPower.Invoke($null, @($name, $recipe))
+    $expectedPower = if ($name -eq 'magneticFieldGenerator_Stage4') { 1000 } else { 5000 }
+    Assert-Equal $recipe.powerNeeded ([single]$expectedPower) 'Generator-only operational power'
+    Assert-Equal $recipe.maxWorkers 200 'Normal generator workforce'
+    Assert-Equal $recipe.timeSteps 1500000 'Normal generator batch time'
+    $factory = [FactoryProductionLogic]::new()
+    $factory.productionDefinition = [ProductionDefinition]::new()
+    $factory.productionDefinition.powerNeeded = 5000
+    $factory.terraformRadius = 4096
+    $description = [BuildingDescription]::new()
+    $description.name = $name
+    $previewPower.Invoke($null, @($description, $factory))
+    Assert-Equal $factory.productionDefinition.powerNeeded ([single]$expectedPower) 'Preview matches operational power'
+    Assert-Equal $factory.terraformRadius ([single]4096) 'Normal magnetic field coverage'
+}
+Write-Output 'PASS: generator power for saved factories and previews, other buildings, workforce, time, and radius.'

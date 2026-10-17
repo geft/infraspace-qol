@@ -12,7 +12,6 @@ namespace InfraSpaceQoL
         public WorkforceSettings Workforce = new WorkforceSettings();
         public TerraformingSettings Terraforming = new TerraformingSettings();
         public LaserSettings Laser = new LaserSettings();
-        public MonumentSettings Monuments = new MonumentSettings();
     }
 
     [AttributeUsage(AttributeTargets.Field)]
@@ -97,6 +96,15 @@ namespace InfraSpaceQoL
         [SettingLabel("Expand saturated terraformer coverage")]
         [Description("Double coverage when 95% of the current circle reaches 99% total progress, up to the playable map.")]
         public bool ExpandWhenLocalAreaSaturated = true;
+
+        [SettingLabel("Reduce Magnetic Field Generator adamantite cost")]
+        [Description("Use 75 instead of 250 for the upfront placement cost. Disabling restores the normal placement cost.")]
+        public bool ReduceMagneticFieldGeneratorCost = true;
+
+        [SettingLabel("Magnetic Field Generator power (MW)")]
+        [Description("Base power requirement: 1000 by default; 5000 restores the normal game requirement.")]
+        [SettingRange(1, 5000, 10000, 0)]
+        public decimal MagneticFieldGeneratorPowerMW = 1000m;
     }
 
     public sealed class LaserSettings
@@ -111,10 +119,4 @@ namespace InfraSpaceQoL
         public decimal SpeedMultiplier = 3m;
     }
 
-    public sealed class MonumentSettings
-    {
-        [SettingLabel("Reduce Magnetic Field Generator adamantite cost")]
-        [Description("Use 75 instead of 250 for the upfront placement cost. Disabling restores the normal placement cost.")]
-        public bool ReduceMagneticFieldGeneratorCost = true;
-    }
 }

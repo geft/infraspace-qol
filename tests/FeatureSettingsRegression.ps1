@@ -5,7 +5,7 @@ try {
     $configured = [Newtonsoft.Json.JsonConvert]::DeserializeObject('{}', $settingsType)
     $currentProperty.SetValue($null, $configured)
     $logisticsOptions = $settingsType.GetField('Logistics').GetValue($configured)
-    $monumentOptions = $settingsType.GetField('Monuments').GetValue($configured)
+    $monumentOptions = $settingsType.GetField('Terraforming').GetValue($configured)
 
     $resource.name = 'adamantine'
     $resource.stackSize = 48
@@ -50,6 +50,24 @@ try {
     $monumentOptions.GetType().GetField('ReduceMagneticFieldGeneratorCost').SetValue($monumentOptions, $true)
     $applyMonumentCost.Invoke($null, @($description))
     Assert-Equal $description.costs[0].amount 7500 'Monument placement discount can be re-enabled'
+
+    $powerField = $monumentOptions.GetType().GetField('MagneticFieldGeneratorPowerMW')
+    foreach ($power in @(1, 1000, 2500, 5000)) {
+        $powerField.SetValue($monumentOptions, [decimal]$power)
+        $recipe = [ProductionDefinition]::new()
+        $recipe.powerNeeded = 5000
+        $monument.GetMethod('GeneratorPowerPostfix').Invoke($null, @('magneticFieldGenerator_Stage4', $recipe))
+        Assert-Equal $recipe.powerNeeded ([single]$power) 'Configured generator power reaches runtime recipe'
+    }
+    foreach ($case in @(
+        @('{"Monuments":{"ReduceMagneticFieldGeneratorCost":false}}', $false),
+        @('{"Monuments":{"ReduceMagneticFieldGeneratorCost":false},"Terraforming":{"ReduceMagneticFieldGeneratorCost":true}}', $true))) {
+        $normalized = $settingsType.GetMethod('NormalizeSettingsJson', $flags).Invoke($null, @($case[0]))
+        $migrated = [Newtonsoft.Json.JsonConvert]::DeserializeObject($normalized, $settingsType)
+        $options = $settingsType.GetField('Terraforming').GetValue($migrated)
+        Assert-Equal $options.ReduceMagneticFieldGeneratorCost $case[1] 'Legacy monument preference migrates with new-key precedence'
+        Assert-Equal $options.MagneticFieldGeneratorPowerMW ([decimal]1000) 'Older settings receive default generator power'
+    }
 
     $packageSettings = Get-Content -LiteralPath (Join-Path $root 'settings.json') -Raw | ConvertFrom-Json -AsHashtable
     $defaults = [Newtonsoft.Json.JsonConvert]::DeserializeObject('{}', $settingsType)

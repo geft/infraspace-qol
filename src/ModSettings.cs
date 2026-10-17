@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 namespace InfraSpaceQoL
@@ -9,6 +10,21 @@ namespace InfraSpaceQoL
     internal sealed class ModSettings : SettingsOptions
     {
         internal static ModSettings Current { get; private set; } = new ModSettings();
+
+        internal static string NormalizeSettingsJson(string json)
+        {
+            JObject document = JObject.Parse(json);
+            JObject legacy = document["Monuments"] as JObject;
+            if (legacy != null && legacy["ReduceMagneticFieldGeneratorCost"] != null)
+            {
+                JObject terraforming = document["Terraforming"] as JObject;
+                if (document["Terraforming"] == null || document["Terraforming"].Type == JTokenType.Null)
+                    document["Terraforming"] = terraforming = new JObject();
+                if (terraforming != null && terraforming["ReduceMagneticFieldGeneratorCost"] == null)
+                    terraforming["ReduceMagneticFieldGeneratorCost"] = legacy["ReduceMagneticFieldGeneratorCost"].DeepClone();
+            }
+            return document.ToString();
+        }
 
         internal static void Load()
         {
@@ -23,14 +39,13 @@ namespace InfraSpaceQoL
 
             try
             {
-                ModSettings settings = JsonConvert.DeserializeObject<ModSettings>(File.ReadAllText(path));
+                ModSettings settings = JsonConvert.DeserializeObject<ModSettings>(NormalizeSettingsJson(File.ReadAllText(path)));
                 if (settings == null)
                 {
                     throw new InvalidDataException("The JSON document did not contain a settings object.");
                 }
 
                 if (settings.Speed == null) settings.Speed = new SpeedSettings();
-                if (settings.Monuments == null) settings.Monuments = new MonumentSettings();
                 if (settings.Logistics == null)
                 {
                     settings.Logistics = new LogisticsSettings();
@@ -46,6 +61,11 @@ namespace InfraSpaceQoL
                 if (settings.Terraforming == null)
                 {
                     settings.Terraforming = new TerraformingSettings();
+                }
+                if (settings.Terraforming.MagneticFieldGeneratorPowerMW < 1m || settings.Terraforming.MagneticFieldGeneratorPowerMW > 5000m)
+                {
+                    Debug.LogWarning("[InfraSpaceQoL] Magnetic Field Generator power must be between 1 and 5000 MW; using 1000.");
+                    settings.Terraforming.MagneticFieldGeneratorPowerMW = 1000m;
                 }
                 if (settings.Laser == null)
                 {

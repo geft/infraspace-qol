@@ -1,6 +1,6 @@
 {
   "name": "InfraSpaceQoL",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "author": "GJ",
   "url": "",
   "description": "Adds 4x and 8x speed, prioritized Collection Center supply, Red Science tweaks, automatic worker release, expanding terraformer coverage, and automatic laser obstacle clearing."

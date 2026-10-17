@@ -81,8 +81,24 @@ internal static class InstallerSettingsSmoke
                 Check(((Dictionary<string, object>)loaded["Research"])["DoubleRedScienceOutput"].Equals(false), "Saved false replaced by default");
                 Check(Convert.ToDecimal(((Dictionary<string, object>)loaded["Laser"])["SpeedMultiplier"]) == 1.75m, "Saved multiplier lost");
                 Check(((Dictionary<string, object>)loaded["Laser"])["AutoClearObstacles"].Equals(true), "Missing field did not receive default");
-                Check(((Dictionary<string, object>)loaded["Monuments"])["ReduceMagneticFieldGeneratorCost"].Equals(true), "Missing section did not receive default");
+                Check(((Dictionary<string, object>)loaded["Terraforming"])["ReduceMagneticFieldGeneratorCost"].Equals(true), "Missing section did not receive default");
             }
+
+            foreach (bool newKey in new[] { false, true })
+            {
+                File.WriteAllText(path, "{\"Monuments\":{\"ReduceMagneticFieldGeneratorCost\":false}" +
+                    (newKey ? ",\"Terraforming\":{\"ReduceMagneticFieldGeneratorCost\":true}" : "") + "}");
+                using (var editor = new SettingsEditor(new SettingsDocument(path)))
+                {
+                    foreach (TabPage page in editor.TabPages) Check(page.Text != "Monuments", "Legacy category still visible");
+                    var migrated = serializer.Deserialize<Dictionary<string, object>>(editor.SerializeChoices());
+                    var terraforming = (Dictionary<string, object>)migrated["Terraforming"];
+                    Check(terraforming["ReduceMagneticFieldGeneratorCost"].Equals(newKey), "Legacy choice or new-key precedence lost");
+                    Check(Convert.ToDecimal(terraforming["MagneticFieldGeneratorPowerMW"]) == 1000m, "Missing generator power default");
+                    Check(!migrated.ContainsKey("Monuments"), "Old category was not migrated");
+                }
+            }
+            File.WriteAllText(path, original);
 
             using (var form = new InstallerForm(args[0], directory))
             {
@@ -96,7 +112,7 @@ internal static class InstallerSettingsSmoke
                 Check(editor != null, "Settings editor failed to load");
                 foreach (Control control in editor.TabPages[2].Controls[0].Controls)
                     if (control is CheckBox) Check(!((CheckBox)control).Checked, "Form did not load installed settings");
-                editor.SelectedIndex = 1;
+                editor.SelectedIndex = 4;
                 Application.DoEvents();
                 using (var bitmap = new Bitmap(form.Width, form.Height))
                 {

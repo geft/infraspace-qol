@@ -20,6 +20,10 @@ namespace InfraSpaceQoL
 
             ModSettings.Load();
             var patches = new List<PatchPlan>();
+            Plan(patches, typeof(ProductionDefinitionManager), "GetProductionDefinition", typeof(MonumentCostPatches),
+                null, "GeneratorPowerPostfix", null);
+            Plan(patches, typeof(BuildingDescription), "GetCachedProductionLogic", typeof(MonumentCostPatches),
+                null, "GeneratorPreviewPostfix", null);
             Plan(patches, typeof(BuildingDescription), "Init", typeof(MonumentCostPatches),
                 null, "DescriptionInitPostfix", null);
             if (ModSettings.Current.Laser.SpeedMultiplier > 1m)

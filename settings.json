@@ -15,7 +15,9 @@
     "ReleaseWorkersWhenAllOutputsFull": true
   },
   "Terraforming": {
-    "ExpandWhenLocalAreaSaturated": true
+    "ExpandWhenLocalAreaSaturated": true,
+    "ReduceMagneticFieldGeneratorCost": true,
+    "MagneticFieldGeneratorPowerMW": 1000
   },
   "Laser": {
     "AutoClearObstacles": true,
@@ -23,8 +25,5 @@
   },
   "Speed": {
     "ExtraSpeedControls": true
-  },
-  "Monuments": {
-    "ReduceMagneticFieldGeneratorCost": true
   }
 }
