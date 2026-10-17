@@ -1,42 +1,34 @@
-using System;
 using System.Collections.Generic;
 
 namespace InfraSpaceQoL
 {
     internal static class MonumentCostPatches
     {
-        public static void NewProductionLogicPostfix(BuildingDescription __instance, ProductionLogic __result)
+        public static void DescriptionInitPostfix(BuildingDescription __instance)
         {
-            ApplyCost(__instance.name, __result as UpgradeProductionLogic);
+            ApplyCost(__instance);
         }
 
-        public static void UpgradeInitPrefix(UpgradeProductionLogic __instance, ConsumerProducer consumerProducer)
+        internal static void ApplyCost(BuildingDescription description)
         {
-            // Saved construction stages retain their own serialized costs.
-            ApplyCost(consumerProducer.building.buildingName, __instance);
-        }
-
-        internal static void ApplyCost(string buildingName, UpgradeProductionLogic upgrade)
-        {
-            if (buildingName == null || !buildingName.StartsWith("magneticFieldGenerator_Stage", StringComparison.Ordinal) ||
-                upgrade == null || upgrade.costs == null)
+            if (description == null || description.name != "magneticFieldGenerator_Stage0" || description.costs == null)
             {
                 return;
             }
 
-            // Copy the list so a shared construction recipe cannot be changed.
             List<ResourceCost> adjusted = null;
-            for (int i = 0; i < upgrade.costs.Count; i++)
+            for (int i = 0; i < description.costs.Count; i++)
             {
-                ResourceCost cost = upgrade.costs[i];
-                if (cost.resourceName == "adamantine" && cost.amount == 250)
+                ResourceCost cost = description.costs[i];
+                // Placement costs use hundredths; stage deliveries use whole items.
+                if (cost.resourceName == "adamantine" && (cost.amount == 25000 || cost.amount == 7500))
                 {
-                    if (adjusted == null) adjusted = new List<ResourceCost>(upgrade.costs);
-                    cost.amount = 75;
+                    if (adjusted == null) adjusted = new List<ResourceCost>(description.costs);
+                    cost.amount = ModSettings.Current.Monuments.ReduceMagneticFieldGeneratorCost ? 7500 : 25000;
                     adjusted[i] = cost;
                 }
             }
-            if (adjusted != null) upgrade.costs = adjusted;
+            if (adjusted != null) description.costs = adjusted;
         }
     }
 }

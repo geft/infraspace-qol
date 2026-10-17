@@ -26,6 +26,7 @@
     <Reference Include="InfraSpaceGameFeatures" Private="false"><HintPath>$(InfraSpaceManagedDir)\InfraSpaceGameFeatures.dll</HintPath></Reference>
     <Reference Include="old" Private="false"><HintPath>$(InfraSpaceManagedDir)\old.dll</HintPath></Reference>
     <Reference Include="UnityEngine.CoreModule" Private="false"><HintPath>$(InfraSpaceManagedDir)\UnityEngine.CoreModule.dll</HintPath></Reference>
+    <Reference Include="UnityEngine.ImageConversionModule" Private="false"><HintPath>$(InfraSpaceManagedDir)\UnityEngine.ImageConversionModule.dll</HintPath></Reference>
     <Reference Include="Unity.Collections" Private="false"><HintPath>$(InfraSpaceManagedDir)\Unity.Collections.dll</HintPath></Reference>
     <Reference Include="Unity.Mathematics" Private="false"><HintPath>$(InfraSpaceManagedDir)\Unity.Mathematics.dll</HintPath></Reference>
     <Reference Include="UnityEngine.UI" Private="false"><HintPath>$(InfraSpaceManagedDir)\UnityEngine.UI.dll</HintPath></Reference>
@@ -36,6 +37,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="assets\speed\speed-4x.png" LogicalName="InfraSpaceQoL.Speed4x.png" />
+    <EmbeddedResource Include="assets\speed\speed-8x.png" LogicalName="InfraSpaceQoL.Speed8x.png" />
     <None Update="config.json" CopyToOutputDirectory="PreserveNewest" />
     <None Update="settings.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

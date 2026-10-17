@@ -55,6 +55,10 @@ $pwshPath = (Get-Process -Id $PID).Path
 if ($LASTEXITCODE -ne 0) { throw 'Mod build failed.' }
 & $pwshPath -NoProfile -File (Join-Path $PSScriptRoot 'tests/Regression.ps1') -ManagedDir $ManagedDir
 if ($LASTEXITCODE -ne 0) { throw 'Regression checks failed.' }
+& $pwshPath -NoProfile -File (Join-Path $PSScriptRoot 'tests/SpeedRegression.ps1') -ManagedDir $ManagedDir
+if ($LASTEXITCODE -ne 0) { throw 'Speed regression checks failed.' }
 & $pwshPath -NoProfile -File (Join-Path $PSScriptRoot 'installer/build.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Installer build failed.' }
+& $pwshPath -NoProfile -File (Join-Path $PSScriptRoot 'tests/InstallerRegression.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Installer regression checks failed.' }
 Write-Output "Ready to install: $(Join-Path $PSScriptRoot 'installer/bin/Release/InfraSpaceQoLInstaller.exe')"

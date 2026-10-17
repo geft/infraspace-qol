@@ -32,10 +32,14 @@ public static class WorkforcePatchSmoke
     private static void Run()
     {
         Assembly mod = Assembly.Load("InfraSpaceQoL");
+        LaserAutomationSmoke.Run(mod);
         Type patches = mod.GetType("InfraSpaceQoL.WorkforcePatches", true);
         Harmony harmony = new Harmony("InfraSpaceQoL.WorkforcePatchSmoke");
         try
         {
+            Type research = mod.GetType("InfraSpaceQoL.ResearchPatches", true);
+            harmony.Patch(AccessTools.Method(typeof(ProductionDefinitionManager), "GetProductionDefinition"),
+                null, new HarmonyMethod(research.GetMethod("RedScienceOutputPostfix")));
             harmony.Patch(AccessTools.Method(typeof(Market), "CheckEmployment"),
                 new HarmonyMethod(patches.GetMethod("CheckEmploymentPrefix")), null, null,
                 new HarmonyMethod(patches.GetMethod("CheckEmploymentFinalizer")));
@@ -45,6 +49,19 @@ public static class WorkforcePatchSmoke
             Resource.Init(delegate { return 0; });
             Resource resource = (Resource)FormatterServices.GetUninitializedObject(typeof(Resource));
             resource.stackSize = 100;
+            var definitions = new ProductionDefinitionManager();
+            var recipe = new ProductionDefinition();
+            // Exercise patch installation/result injection without Unity's
+            // resource registry and modified Newtonsoft assembly. Native pack
+            // yields are covered by RedScienceOutputRegression.ps1.
+            definitions.productionDefinitions.Add("test-red-science", recipe);
+            for (int lookup = 0; lookup < 3; lookup++)
+            {
+                ProductionDefinition result = definitions.GetProductionDefinition("test-red-science");
+                if (!ReferenceEquals(result, recipe))
+                    throw new Exception("Harmony Red Science patch changed an empty recipe.");
+            }
+            Console.WriteLine("PASS: .NET Framework Harmony Red Science patch installation and result injection.");
             FactoryProductionLogic factory = new FactoryProductionLogic();
             factory.productionDefinition = new ProductionDefinition();
             factory.productionDefinition.producables = new List<ResourceCost> { new ResourceCost(resource, 1) };

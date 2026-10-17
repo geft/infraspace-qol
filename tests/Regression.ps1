@@ -90,18 +90,22 @@ $factoryConsumer = New-ConsumerForLogic ([FactoryProductionLogic])
 $storehouseConsumer = New-ConsumerForLogic ([StorehouseProductionLogic])
 $distributionConsumer = New-ConsumerForLogic ([DistributionProductionLogic])
 $labConsumer = New-ConsumerForLogic ([ResearchProductionLogic])
+$upgradeConsumer = New-ConsumerForLogic ([UpgradeProductionLogic])
 Assert-Equal ($isSupportedDestination.Invoke($null, @($factoryConsumer))) $true 'Factory direct destination'
 Assert-Equal ($isSupportedDestination.Invoke($null, @($storehouseConsumer))) $true 'Storehouse direct destination'
 Assert-Equal ($isSupportedDestination.Invoke($null, @($labConsumer))) $true 'Research lab can receive collected science packs'
+Assert-Equal ($isSupportedDestination.Invoke($null, @($upgradeConsumer))) $true 'Drill construction stages can receive Collection Center stock'
 Assert-Equal ($isSupportedDestination.Invoke($null, @($distributionConsumer))) $false 'Distribution center excluded as direct destination'
 Assert-Equal ($getDestinationPriority.Invoke($null, @($factoryConsumer))) 0 'Factory destination priority'
 Assert-Equal ($getDestinationPriority.Invoke($null, @($labConsumer))) 0 'Research lab precedes surplus storage'
+Assert-Equal ($getDestinationPriority.Invoke($null, @($upgradeConsumer))) 0 'Drill construction precedes surplus storage'
 Assert-Equal ($getDestinationPriority.Invoke($null, @($storehouseConsumer))) 1 'Storehouse fallback priority'
 $requestPriority = $logistics.GetMethod('GetRequestPriority', $flags)
 Assert-Equal ($requestPriority.Invoke($null, @($labConsumer, 10, 10, 0))) ([single]1) 'Empty lab science input has native urgent priority'
 Assert-Equal ($requestPriority.Invoke($null, @($labConsumer, 9, 10, 1))) ([single]0.8125) 'Lab priority decreases as packs arrive'
 Assert-Equal ($requestPriority.Invoke($null, @($labConsumer, 6, 10, 4))) ([single]0.25) 'Stocked lab uses native minimum priority'
 Assert-Equal ($requestPriority.Invoke($null, @($labConsumer, 0, 10, 10))) ([single]0) 'Full science input does not request more packs'
+Assert-Equal ($requestPriority.Invoke($null, @($upgradeConsumer, 1, 1500, 0))) ([single]0.5) 'Construction uses native request priority'
 
 # A newer, closer Storehouse must win even when an older distant one is listed first.
 $routeType = $logistics.GetNestedType('StorehouseRoute', [Reflection.BindingFlags]'NonPublic')
@@ -208,6 +212,37 @@ foreach ($invalidRadius in @([single]::NaN, [single]::PositiveInfinity, [single]
     Assert-Equal ($canCollect.Invoke($null, @($nearCenter, $producer))) $false 'Invalid radius rejected'
 }
 
+# Drill construction tracks accumulated materials separately from its input buffer.
+$upgradeConsumer.building = New-LogisticsBuilding 0 0 0
+$upgradeConsumer.building.upgrades = [System.Collections.Generic.List[BuildingUpgrade]]::new()
+$upgradeConsumer.incomingStorage = [int[]]@(0)
+$upgradeConsumer.incomingCars = [System.Collections.Generic.HashSet[Car]]::new()
+$upgradeLogic = $upgradeConsumer.productionLogic
+$upgradeLogic.costs = [System.Collections.Generic.List[ResourceCost]]::new()
+$upgradeLogic.costs.Add([ResourceCost]::new($resource, 1500))
+$upgradeLogic.storage = [System.Collections.Generic.Dictionary[Resource,int]]::new()
+$upgradeLogic.storage.Add($resource, 1497)
+$remainingDemand = $logistics.GetMethod('GetRemainingDemand', $flags)
+$directAmount = $logistics.GetMethod('GetDirectDeliveryAmount', $flags)
+$hasRoom = $logistics.GetMethod('HasRoomForDelivery', $flags)
+Assert-Equal ($remainingDemand.Invoke($null, @($upgradeConsumer, $upgradeLogic.costs[0], 0))) 3 'Construction subtracts accumulated materials'
+$upgradeConsumer.incomingStorage[0] = 1
+Assert-Equal ($remainingDemand.Invoke($null, @($upgradeConsumer, $upgradeLogic.costs[0], 0))) 2 'Construction also counts arrived input buffer'
+$upgradeCar = [Runtime.Serialization.FormatterServices]::GetUninitializedObject([Car])
+$upgradeCar.resource = $resource
+$upgradeCar.amount = 1
+$upgradeConsumer.AddIncomingCar($upgradeCar)
+$upgradeRemaining = $remainingDemand.Invoke($null, @($upgradeConsumer, $upgradeLogic.costs[0], 0))
+Assert-Equal $upgradeRemaining 1 'Construction also counts incoming reservations'
+Assert-Equal ($directAmount.Invoke($null, @($upgradeConsumer, $upgradeRemaining, 3))) 1 'Final construction shipment sends one item'
+$upgradeLogic.storage[$resource] = 1498
+Assert-Equal ($remainingDemand.Invoke($null, @($upgradeConsumer, $upgradeLogic.costs[0], 0))) 0 'Fully committed construction requests nothing'
+Assert-Equal ($hasRoom.Invoke($null, @($upgradeConsumer, $resource, 3))) $false 'No duplicate construction delivery when final materials are in transit'
+$upgradeConsumer.RemoveIncomingCar($upgradeCar)
+$upgradeConsumer.incomingStorage[0] = 0
+$upgradeLogic.storage[$resource] = 1503
+Assert-Equal ($remainingDemand.Invoke($null, @($upgradeConsumer, $upgradeLogic.costs[0], 0))) 0 'Previously overfilled construction input stays complete'
+
 # Spaceship repair must finish at 348/350 even when a truck normally carries three.
 $shipConsumer = New-ConsumerForLogic ([FactoryProductionLogic])
 $shipConsumer.productionLogic.logicOverride = 'spaceship'
@@ -281,16 +316,64 @@ $producer.outgoingStorage[0] = 90
 Assert-Equal ($suggestPrefix.Invoke($null, @($storageSuggestion))) $true 'Native storage suggestion allowed for overflow'
 $producer.outgoingStorage[0] -= 3
 Assert-Equal ($suggestPrefix.Invoke($null, @($storageSuggestion))) $false 'Storage stops draining once source falls below threshold'
+
+# Adamantine can reach the global stockpile without clipping slow drill batches.
+$resource.name = 'adamantine'
+$resource.stackSize = 48
+foreach ($case in @(@(0, $false), @(2, $false), @(3, $true), @(30, $true), @(42, $true))) {
+    $producer.outgoingStorage[0] = $case[0]
+    $centerConsumer.incomingStorage[0] = $case[0]
+    $distributionConsumer.incomingStorage[0] = $case[0]
+    foreach ($source in @($producer, $centerConsumer, $distributionConsumer)) {
+        Assert-Equal ($overflowStock.Invoke($null, @($source, $resource, 3))) $case[1] 'Adamantine requires a full load but no overflow threshold for all suppliers'
+    }
+    Assert-Equal ($suggestPrefix.Invoke($null, @($storageSuggestion))) $case[1] 'Native adamantine storage suggestions use the exemption'
+}
+Assert-Equal ($overflowStock.Invoke($null, @($producer, $resource, 0))) $false 'Adamantine rejects zero-sized deliveries'
+Assert-Equal ($overflowStock.Invoke($null, @($centerConsumer, $otherResource, 3))) $false 'Adamantine exemption preserves resource matching'
+$resource.name = 'steel'
+Assert-Equal ($overflowStock.Invoke($null, @($producer, $resource, 3))) $false 'Other resources still retain stock below 90 percent'
+. (Join-Path $PSScriptRoot 'FeatureSettingsRegression.ps1')
 . (Join-Path $PSScriptRoot 'WorkforceRegression.ps1')
 . (Join-Path $PSScriptRoot 'TerraformRegression.ps1')
+. (Join-Path $PSScriptRoot 'RedScienceOutputRegression.ps1')
+foreach ($case in @(@('{}', $true), @('{"Laser":{}}', $true), @('{"Laser":{"AutoClearObstacles":false}}', $false))) {
+    $loaded = [Newtonsoft.Json.JsonConvert]::DeserializeObject($case[0], $settingsType)
+    $laserSettings = $settingsType.GetField('Laser').GetValue($loaded)
+    Assert-Equal $laserSettings.GetType().GetField('AutoClearObstacles').GetValue($laserSettings) $case[1] 'Laser automation defaults and opt-out'
+    Assert-Equal $laserSettings.GetType().GetField('SpeedMultiplier').GetValue($laserSettings) ([decimal]3) 'Older settings default to triple laser speed independently of automation'
+}
+$laserSpeed = $mod.GetType('InfraSpaceQoL.LaserPatches', $true).GetMethod('LaserSpeedBonusPostfix')
+$currentSettingsProperty = $settingsType.GetProperty('Current', $flags)
+$savedSpeedSettings = $currentSettingsProperty.GetValue($null)
+try {
+    foreach ($multiplier in @(1, 3, 10)) {
+        $speedSettings = [Newtonsoft.Json.JsonConvert]::DeserializeObject(('{"Laser":{"AutoClearObstacles":false,"SpeedMultiplier":' + $multiplier + '}}'), $settingsType)
+        $currentSettingsProperty.SetValue($null, $speedSettings)
+        foreach ($bonus in @([single]0, [single]0.5, [single]2)) {
+            $speedArgs = [object[]]@('laserSpeed', $bonus)
+            $laserSpeed.Invoke($null, $speedArgs)
+            Assert-Equal (1 + $speedArgs[1]) ((1 + $bonus) * $multiplier) 'Laser rate multiplies the complete upgraded rate'
+        }
+        foreach ($tech in @('carSpeed', 'productionTimeUpgrade', $null)) {
+            $speedArgs = [object[]]@($tech, [single]0.5)
+            $laserSpeed.Invoke($null, $speedArgs)
+            Assert-Equal $speedArgs[1] ([single]0.5) 'Other upgrade bonuses unchanged'
+        }
+    }
+}
+finally {
+    $currentSettingsProperty.SetValue($null, $savedSpeedSettings)
+}
+Write-Output 'PASS: laser speed, upgrade multiplication, automation independence, defaults, and normal-speed opt-out.'
 # Harmony runs in the game's .NET Framework runtime, independently of PowerShell's CLR.
 $smokeExe = Join-Path ([IO.Path]::GetTempPath()) ('InfraSpaceWorkforceSmoke-' + [guid]::NewGuid().ToString('N') + '.exe')
 try {
     $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-    $references = @('old', 'DionicCore', 'DionicGame', 'InfraSpaceCore', 'UnityEngine.CoreModule') | ForEach-Object {
+    $references = @('old', 'DionicCore', 'DionicGame', 'InfraSpaceCore', 'UnityEngine.CoreModule', 'netstandard') | ForEach-Object {
         '/reference:' + (Join-Path $ManagedDir ($_ + '.dll'))
     }
-    & $compiler /nologo /target:exe /optimize+ "/out:$smokeExe" @references "/reference:$(Join-Path $output '0Harmony.dll')" (Join-Path $PSScriptRoot 'WorkforcePatchSmoke.cs')
+    & $compiler /nologo /target:exe /optimize+ "/out:$smokeExe" @references "/reference:$(Join-Path $output '0Harmony.dll')" (Join-Path $PSScriptRoot 'WorkforcePatchSmoke.cs') (Join-Path $PSScriptRoot 'LaserAutomationSmoke.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Workforce patch smoke compilation failed.' }
     & $smokeExe $output $ManagedDir
     if ($LASTEXITCODE -ne 0) { throw 'Workforce Harmony smoke test failed.' }

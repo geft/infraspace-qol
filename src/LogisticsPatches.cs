@@ -56,7 +56,7 @@ namespace InfraSpaceQoL
                 Resource storedResource = collection != null ? collection.resource : distribution.resource;
                 int capacity = collection != null ? collection.playerStorageLimit : distribution.playerStorageLimit;
                 return storedResource == resource && source.incomingStorage != null && source.incomingStorage.Length > 0 &&
-                    IsNearlyFull(source.incomingStorage[0], capacity, orderAmount);
+                    CanSendStockToStorehouse(resource, source.incomingStorage[0], capacity, orderAmount);
             }
             if (source.outgoingResources == null || source.outgoingStorage == null)
             {
@@ -64,12 +64,22 @@ namespace InfraSpaceQoL
             }
             int index = Array.IndexOf(source.outgoingResources, resource);
             return index >= 0 && index < source.outgoingStorage.Length &&
-                IsNearlyFull(source.outgoingStorage[index], resource.GetStackSize(), orderAmount);
+                CanSendStockToStorehouse(resource, source.outgoingStorage[index], resource.GetStackSize(), orderAmount);
+        }
+
+        private static bool CanSendStockToStorehouse(Resource resource, int stock, int capacity, int orderAmount)
+        {
+            // Adamantine is mined slowly for the global stockpile. Retaining 90% of its
+            // buffer clips subsequent production batches instead of protecting factory supply.
+            return !ModSettings.Current.Logistics.OverflowOnlyStorage ||
+                (ModSettings.Current.Logistics.AdamantiteStorageExemption && resource.name == "adamantine")
+                ? orderAmount > 0 && stock >= orderAmount
+                : IsNearlyFull(stock, capacity, orderAmount);
         }
 
         public static bool DeliverySuggestionPrefix(DeliverySuggestion suggestion)
         {
-            return suggestion == null || suggestion.consumer == null ||
+            return !ModSettings.Current.Logistics.OverflowOnlyStorage || suggestion == null || suggestion.consumer == null ||
                 !(suggestion.consumer.productionLogic is StorehouseProductionLogic) ||
                 HasOverflowStock(suggestion.producer, suggestion.resource, suggestion.amount);
         }
@@ -126,12 +136,13 @@ namespace InfraSpaceQoL
             {
                 return;
             }
-            if (!HasOverflowStock(producer, resource, ConsumerProducer.GetOrderAmount(resource)))
+            if (ModSettings.Current.Logistics.OverflowOnlyStorage &&
+                !HasOverflowStock(producer, resource, ConsumerProducer.GetOrderAmount(resource)))
             {
                 FilterStorehouseConsumers(consumers, null);
                 return;
             }
-            if (!ModSettings.Current.Logistics.DirectCollectionSupply)
+            if (!ModSettings.Current.Logistics.PreferNearestStorehouse)
             {
                 return;
             }
@@ -204,7 +215,7 @@ namespace InfraSpaceQoL
 
         public static void ProducerOutgoingPrefix(ConsumerProducer __instance)
         {
-            if (__instance == null || __instance.building == null ||
+            if (!ModSettings.Current.Logistics.EnforceCollectionRadius || __instance == null || __instance.building == null ||
                 (Old.GetSimulator().GetSimulationFrame() + __instance.building.GetID()) % 50 != 0)
             {
                 return;
@@ -217,6 +228,7 @@ namespace InfraSpaceQoL
         public static bool CollectionReceivePrefix(CollectionProductionLogic __instance,
             ConsumerProducer producer, int amount, ref bool __result)
         {
+            if (!ModSettings.Current.Logistics.EnforceCollectionRadius) return true;
             if (amount <= 0 || !CanCollectFromProducer(__instance, producer))
             {
                 __result = false;
@@ -229,21 +241,36 @@ namespace InfraSpaceQoL
         {
             return consumer != null &&
                 (consumer.productionLogic is FactoryProductionLogic || consumer.productionLogic is ResearchProductionLogic ||
-                 consumer.productionLogic is StorehouseProductionLogic);
+                 consumer.productionLogic is UpgradeProductionLogic || consumer.productionLogic is StorehouseProductionLogic);
         }
 
         internal static int GetDestinationPriority(ConsumerProducer consumer)
         {
             return consumer != null && (consumer.productionLogic is FactoryProductionLogic ||
-                consumer.productionLogic is ResearchProductionLogic) ? 0 : 1;
+                consumer.productionLogic is ResearchProductionLogic || consumer.productionLogic is UpgradeProductionLogic) ? 0 : 1;
+        }
+
+        internal static int GetRemainingDemand(ConsumerProducer consumer, ResourceCost cost, int index)
+        {
+            int remaining = cost.amount - consumer.incomingStorage[index] - consumer.GetIncomingCarsResourceAmount(cost.resource);
+            UpgradeProductionLogic upgrade = consumer.productionLogic as UpgradeProductionLogic;
+            int delivered;
+            // Construction stages move arrived materials into a separate cumulative store.
+            // The native consumable amount remains the full cost until that input is complete.
+            if (upgrade != null && upgrade.storage.TryGetValue(cost.resource, out delivered))
+            {
+                remaining -= delivered;
+            }
+            return Math.Max(0, remaining);
         }
 
         private static bool AllowsFinalDelivery(ConsumerProducer consumer)
         {
             FactoryProductionLogic factory = consumer.productionLogic as FactoryProductionLogic;
             // Native requests permit a single remaining item for these finite jobs.
-            return (factory != null && factory.HasSpaceshipLogicOverride()) ||
-                consumer.productionLogic is UpgradeProductionLogic;
+            return ModSettings.Current.Logistics.AllowPartialFinalLoads &&
+                ((factory != null && factory.HasSpaceshipLogicOverride()) ||
+                consumer.productionLogic is UpgradeProductionLogic);
         }
 
         internal static int GetDirectDeliveryAmount(ConsumerProducer consumer, int remaining, int fullOrderAmount)
@@ -268,6 +295,10 @@ namespace InfraSpaceQoL
                 // Use the native lab priority: an empty science input is urgent, then
                 // priority decreases as packs accumulate. Labs precede surplus storage.
                 return Mathf.Lerp(1f, 0.25f, stored * 0.25f);
+            }
+            if (consumer.productionLogic is UpgradeProductionLogic)
+            {
+                return 0.5f;
             }
             FactoryProductionLogic factory = consumer.productionLogic as FactoryProductionLogic;
             return factory == null
@@ -295,7 +326,7 @@ namespace InfraSpaceQoL
 
         internal static void RefreshRequests(ConsumerProducer consumer)
         {
-            // Mirror factory, research lab, and Storehouse demand the game can transport by truck. Replacing each
+            // Mirror factory, research, construction, and Storehouse demand transportable by truck. Replacing each
             // snapshot also clears stale requests when inputs change or the destination becomes invalid.
             Dictionary<Resource, float> activeRequests = new Dictionary<Resource, float>();
             try
@@ -315,8 +346,7 @@ namespace InfraSpaceQoL
                         }
 
                         int orderAmount = ConsumerProducer.GetOrderAmount(resource);
-                        int outstanding = consumer.GetIncomingCarsResourceAmount(resource);
-                        int remaining = consumable.amount - consumer.incomingStorage[i] - outstanding;
+                        int remaining = GetRemainingDemand(consumer, consumable, i);
                         if (GetDirectDeliveryAmount(consumer, remaining, orderAmount) <= 0)
                         {
                             continue;
@@ -516,8 +546,9 @@ namespace InfraSpaceQoL
                         continue;
                     }
                     HashSet<ConsumerProducer> consumers;
-                    if (!WorldScripts.Inst.registry.consumers.TryGetValue(resource, out consumers) ||
-                        FindNearestStorehouse(center.consumerProducer.building, resource, consumers) != destination)
+                    if (ModSettings.Current.Logistics.PreferNearestStorehouse &&
+                        (!WorldScripts.Inst.registry.consumers.TryGetValue(resource, out consumers) ||
+                        FindNearestStorehouse(center.consumerProducer.building, resource, consumers) != destination))
                     {
                         continue;
                     }
@@ -588,7 +619,7 @@ namespace InfraSpaceQoL
             }
 
             ResourceCost cost = consumables[index];
-            int remaining = cost.amount - consumer.incomingStorage[index] - consumer.GetIncomingCarsResourceAmount(resource);
+            int remaining = GetRemainingDemand(consumer, cost, index);
             orderAmount = GetDirectDeliveryAmount(consumer, remaining, orderAmount);
             if (orderAmount <= 0)
             {
@@ -698,20 +729,22 @@ namespace InfraSpaceQoL
                 __result = false;
                 return false;
             }
-            if (!ModSettings.Current.Logistics.DirectCollectionSupply || __instance == null || dest == null || dest.incomingCars == null)
+            if (__instance == null || dest == null || dest.incomingCars == null)
             {
                 return true;
             }
 
             // Check before taking the destination lock: comparing other Storehouses while
             // holding it could deadlock with a worker dispatching to a different destination.
-            if (dest.productionLogic is StorehouseProductionLogic &&
+            if (ModSettings.Current.Logistics.PreferNearestStorehouse && dest.productionLogic is StorehouseProductionLogic &&
                 FindNearestStorehouse(__instance.consumerProducer.building, __instance.resource,
                     __instance.connectedConsumers) != dest)
             {
                 __result = false;
                 return false;
             }
+
+            if (!ModSettings.Current.Logistics.DirectCollectionSupply) return true;
 
             HashSet<Car> gate = dest.incomingCars;
             Monitor.Enter(gate);
@@ -751,8 +784,7 @@ namespace InfraSpaceQoL
             {
                 if (consumables[i].resource == resource)
                 {
-                    int committed = consumer.incomingStorage[i] + consumer.GetIncomingCarsResourceAmount(resource);
-                    int remaining = consumables[i].amount - committed;
+                    int remaining = GetRemainingDemand(consumer, consumables[i], i);
                     // Native distribution dispatch removes a full load from its source and
                     // clamps arrived stock at the destination. Preserve that final-load
                     // behavior for spaceship repairs and upgrades, including reservations.

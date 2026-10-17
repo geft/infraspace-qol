@@ -20,10 +20,23 @@ namespace InfraSpaceQoL
 
             ModSettings.Load();
             var patches = new List<PatchPlan>();
-            Plan(patches, typeof(BuildingDescription), "GetNewProductionLogic", typeof(MonumentCostPatches),
-                null, "NewProductionLogicPostfix", null);
-            Plan(patches, typeof(UpgradeProductionLogic), "SemiLateInit", typeof(MonumentCostPatches),
-                "UpgradeInitPrefix", null, null);
+            Plan(patches, typeof(BuildingDescription), "Init", typeof(MonumentCostPatches),
+                null, "DescriptionInitPostfix", null);
+            if (ModSettings.Current.Laser.SpeedMultiplier > 1m)
+            {
+                Plan(patches, typeof(UpgradeManager), "GetBonus", typeof(LaserPatches),
+                    null, "LaserSpeedBonusPostfix", null);
+            }
+            if (ModSettings.Current.Laser.AutoClearObstacles)
+            {
+                Plan(patches, typeof(LaserCannonSpaceshipPart), "CustomUpdate", typeof(LaserPatches),
+                    "LaserUpdatePrefix", null, null);
+            }
+            if (ModSettings.Current.Research.DoubleRedScienceOutput)
+            {
+                Plan(patches, typeof(ProductionDefinitionManager), "GetProductionDefinition", typeof(ResearchPatches),
+                    null, "RedScienceOutputPostfix", null);
+            }
             if (ModSettings.Current.Terraforming.ExpandWhenLocalAreaSaturated)
             {
                 RequireField(typeof(TerraformBuildingsManager), "terraformers", typeof(Dictionary<long, Terraformer>));
@@ -46,10 +59,13 @@ namespace InfraSpaceQoL
                 Plan(patches, typeof(Market), "CheckEmployment", typeof(WorkforcePatches),
                     "CheckEmploymentPrefix", null, "CheckEmploymentFinalizer");
             }
-            Plan(patches, typeof(Dashboard), "Start", typeof(SpeedPatches), null, "DashboardStartPostfix", null);
-            Plan(patches, typeof(Dashboard), "StartAfterLoad", typeof(SpeedPatches), null, "DashboardStartAfterLoadPostfix", null);
-            Plan(patches, typeof(TimeManager), "ButtonSelectionChanged", typeof(SpeedPatches), "TimeButtonSelectionPrefix", null, null);
-            Plan(patches, typeof(TimeManager), "SetTimeState", typeof(SpeedPatches), null, "TimeStatePostfix", null);
+            if (ModSettings.Current.Speed.ExtraSpeedControls)
+            {
+                Plan(patches, typeof(Dashboard), "Start", typeof(SpeedPatches), null, "DashboardStartPostfix", null);
+                Plan(patches, typeof(Dashboard), "StartAfterLoad", typeof(SpeedPatches), null, "DashboardStartAfterLoadPostfix", null);
+                Plan(patches, typeof(TimeManager), "ButtonSelectionChanged", typeof(SpeedPatches), "TimeButtonSelectionPrefix", null, null);
+                Plan(patches, typeof(TimeManager), "SetTimeState", typeof(SpeedPatches), null, "TimeStatePostfix", null);
+            }
             Plan(patches, typeof(ConsumerProducer), "UpdateOutgoingTraffic", typeof(LogisticsPatches), "ProducerOutgoingPrefix", null, null);
             Plan(patches, typeof(CollectionProductionLogic), "TryStartDeliveryToCollectionCenter", typeof(LogisticsPatches), "CollectionReceivePrefix", null, null);
             Plan(patches, typeof(OrderManager), "GetInterestedConsumers", typeof(LogisticsPatches), null, "InterestedConsumersPostfix", null);
@@ -109,11 +125,19 @@ namespace InfraSpaceQoL
             Debug.Log("[InfraSpaceQoL] Loaded. Direct Collection Supply=" + ModSettings.Current.Logistics.DirectCollectionSupply +
                       ", Expand saturated terraforming=" + ModSettings.Current.Terraforming.ExpandWhenLocalAreaSaturated +
                       ", Release workers when all outputs full=" + ModSettings.Current.Workforce.ReleaseWorkersWhenAllOutputsFull +
-                      ", Red Science multiplier=" + ModSettings.Current.Research.RedScienceCostMultiplier.ToString("0.###") + ".");
+                      ", Red Science cost multiplier=" + ModSettings.Current.Research.RedScienceCostMultiplier.ToString("0.###") +
+                      ", Double Red Science output=" + ModSettings.Current.Research.DoubleRedScienceOutput +
+                      ", Auto-clear laser obstacles=" + ModSettings.Current.Laser.AutoClearObstacles +
+                      ", Laser speed multiplier=" + ModSettings.Current.Laser.SpeedMultiplier + ".");
         }
 
         public override void Start()
         {
+            // Base definitions are loaded before script mods install Harmony patches.
+            foreach (BuildingDescription description in Old.GetBuildingModule().buildingDescriptions.Values)
+            {
+                MonumentCostPatches.ApplyCost(description);
+            }
         }
 
         public override void FrameUpdate()

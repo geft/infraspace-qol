@@ -1,14 +1,30 @@
 {
   "Logistics": {
-    "DirectCollectionSupply": true
+    "DirectCollectionSupply": true,
+    "OverflowOnlyStorage": true,
+    "AdamantiteStorageExemption": true,
+    "PreferNearestStorehouse": true,
+    "EnforceCollectionRadius": true,
+    "AllowPartialFinalLoads": true
   },
   "Research": {
-    "RedScienceCostMultiplier": 0.5
+    "RedScienceCostMultiplier": 0.5,
+    "DoubleRedScienceOutput": true
   },
   "Workforce": {
     "ReleaseWorkersWhenAllOutputsFull": true
   },
   "Terraforming": {
     "ExpandWhenLocalAreaSaturated": true
+  },
+  "Laser": {
+    "AutoClearObstacles": true,
+    "SpeedMultiplier": 3
+  },
+  "Speed": {
+    "ExtraSpeedControls": true
+  },
+  "Monuments": {
+    "ReduceMagneticFieldGeneratorCost": true
   }
 }

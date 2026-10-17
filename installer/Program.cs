@@ -87,6 +87,7 @@ namespace InfraSpaceQoLInstaller
         private readonly CheckBox openFolder;
         private readonly Label status;
         private readonly Button installButton;
+        private readonly SettingsEditor settingsEditor;
 
         internal InstallerForm(string packageDirectory, string installDirectory)
         {
@@ -100,7 +101,8 @@ namespace InfraSpaceQoLInstaller
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            ClientSize = new Size(560, 310);
+            ClientSize = new Size(740, 710);
+            AutoScaleMode = AutoScaleMode.Dpi;
             Font = new Font("Segoe UI", 9F);
 
             Label title = new Label
@@ -108,15 +110,15 @@ namespace InfraSpaceQoLInstaller
                 Text = "Install InfraSpace QoL " + packageVersion,
                 Font = new Font("Segoe UI", 15F, FontStyle.Bold),
                 Location = new Point(18, 16),
-                Size = new Size(520, 32)
+                Size = new Size(700, 32)
             };
             Controls.Add(title);
 
             Label description = new Label
             {
-                Text = "Install the mod in InfraSpace's local mods folder. Existing settings are preserved.",
+                Text = "Choose your features below. Updates load your saved settings; Install saves the choices shown. Close the game before installing.",
                 Location = new Point(20, 55),
-                Size = new Size(520, 36)
+                Size = new Size(700, 36)
             };
             Controls.Add(description);
 
@@ -131,7 +133,7 @@ namespace InfraSpaceQoLInstaller
             {
                 Text = packageDirectory,
                 Location = new Point(102, 104),
-                Size = new Size(438, 36),
+                Size = new Size(618, 36),
                 AutoEllipsis = true
             });
 
@@ -146,7 +148,7 @@ namespace InfraSpaceQoLInstaller
             {
                 Text = installDirectory,
                 Location = new Point(20, 174),
-                Size = new Size(520, 24),
+                Size = new Size(700, 24),
                 ReadOnly = true
             };
             Controls.Add(destination);
@@ -155,7 +157,7 @@ namespace InfraSpaceQoLInstaller
             {
                 Text = "Open the mod folder after installation",
                 Checked = true,
-                Location = new Point(20, 210),
+                Location = new Point(20, 598),
                 Size = new Size(300, 24)
             };
             Controls.Add(openFolder);
@@ -163,25 +165,42 @@ namespace InfraSpaceQoLInstaller
             status = new Label
             {
                 Text = "Enable InfraSpace QoL in the game's Mods menu after installation.",
-                Location = new Point(20, 244),
-                Size = new Size(520, 22)
+                Location = new Point(20, 630),
+                Size = new Size(700, 32)
             };
             Controls.Add(status);
 
             installButton = new Button
             {
                 Text = "Install",
-                Location = new Point(350, 272),
+                Location = new Point(530, 670),
                 Size = new Size(90, 28)
             };
             installButton.Click += InstallButton_Click;
             Controls.Add(installButton);
             AcceptButton = installButton;
 
+            try
+            {
+                string existing = Path.Combine(installDirectory, "settings.json");
+                string source = File.Exists(existing) ? existing : Path.Combine(packageDirectory, "settings.json");
+                settingsEditor = new SettingsEditor(new SettingsDocument(source));
+                settingsEditor.Location = new Point(20, 212);
+                settingsEditor.Size = new Size(700, 374);
+                Controls.Add(settingsEditor);
+            }
+            catch (Exception exception)
+            {
+                installButton.Enabled = false;
+                status.Text = "Settings could not be loaded. Existing files have not been changed.";
+                Controls.Add(new Label { Text = exception.Message, Location = new Point(20, 220),
+                    Size = new Size(700, 140), ForeColor = Color.DarkRed });
+            }
+
             Button closeButton = new Button
             {
                 Text = "Close",
-                Location = new Point(450, 272),
+                Location = new Point(630, 670),
                 Size = new Size(90, 28),
                 DialogResult = DialogResult.Cancel
             };
@@ -198,6 +217,8 @@ namespace InfraSpaceQoLInstaller
                 status.Text = "Installing...";
                 Refresh();
 
+                string selectedSettings = settingsEditor.SerializeChoices();
+
                 Directory.CreateDirectory(installDirectory);
                 foreach (string fileName in new[] { "InfraSpaceQoL.dll", "0Harmony.dll", "config.json" })
                 {
@@ -207,15 +228,12 @@ namespace InfraSpaceQoLInstaller
                         true);
                 }
 
-                // Keep the player's settings when updating; install defaults only on first install.
+                // Save the displayed choices, retaining unknown keys and backing up previous settings.
                 string settingsPath = Path.Combine(installDirectory, "settings.json");
-                if (!File.Exists(settingsPath))
-                {
-                    File.Copy(Path.Combine(packageDirectory, "settings.json"), settingsPath);
-                }
+                SettingsDocument.Save(settingsPath, selectedSettings);
 
                 MessageBox.Show(
-                    "Installation complete.\r\n\r\nEnable InfraSpace QoL in the game's Mods menu.",
+                    "Installation complete. Your selected settings have been saved.\r\n\r\nStart InfraSpace and enable InfraSpace QoL in the game's Mods menu.",
                     "InfraSpace QoL Installer",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);

@@ -10,6 +10,7 @@ namespace InfraSpaceQoL
         // Completion is shared by all terraforming types. Requiring near-total
         // completion prevents one early-game type from spreading across the map.
         private const float SaturatedProgress = 0.99f;
+        private const int SaturatedAreaPercent = 95;
 
         public static void TerraformPrefix(ref Dictionary<long, Terraformer> ___terraformers,
             NativeArray<float> ___progress, int2 ___progressDim, float ___mapCorner,
@@ -68,9 +69,12 @@ namespace InfraSpaceQoL
             int maxRow = ProjectCell(mapCorner + mapSize, worldSize, width);
             int minColumn = ProjectCell(mapCorner, worldSize, height);
             int maxColumn = ProjectCell(mapCorner + mapSize, worldSize, height);
-            double nearestIncomplete = double.PositiveInfinity;
-            double farthest = 0d;
-            float nativeSquared = nativeRadius * nativeRadius;
+            // Count concentric doubling bands in one pass. Accumulating them
+            // below tests the whole circle at each stage, tolerating small holes
+            // without letting a mostly unfinished outer ring expand again.
+            var radii = new List<float> { nativeRadius };
+            var cells = new List<int> { 0 };
+            var saturated = new List<int> { 0 };
             for (int row = minRow; row <= maxRow; row++)
             {
                 float dz = (float)row / width * worldSize - z;
@@ -78,28 +82,40 @@ namespace InfraSpaceQoL
                 {
                     float dx = (float)column / height * worldSize - x;
                     float distanceSquared = dx * dx + dz * dz;
-                    farthest = Math.Max(farthest, distanceSquared);
-                    // NaN is treated as incomplete, never as a license to expand.
-                    if (!(progress[row * height + column] >= SaturatedProgress))
+                    int band = 0;
+                    while (distanceSquared > radii[band] * radii[band])
                     {
-                        if (distanceSquared <= nativeSquared)
+                        band++;
+                        if (band == radii.Count)
                         {
-                            return nativeRadius;
+                            radii.Add(radii[band - 1] * 2f);
+                            cells.Add(0);
+                            saturated.Add(0);
                         }
-                        nearestIncomplete = Math.Min(nearestIncomplete, distanceSquared);
+                    }
+                    cells[band]++;
+                    // Invalid progress counts against the saturation fraction.
+                    if (progress[row * height + column] >= SaturatedProgress)
+                    {
+                        saturated[band]++;
                     }
                 }
             }
 
-            // Double only after the entire previous circle has saturated.
-            // Reconstructing stages from saved progress avoids mod save data.
-            double frontier = double.IsPositiveInfinity(nearestIncomplete) ? farthest : nearestIncomplete;
-            double radius = nativeRadius;
-            while (radius * radius < frontier)
+            // Reconstruct stages from saved progress. Stop once coverage reaches
+            // the playable map, or a circle has more than 5% unfinished cells.
+            long totalCells = 0;
+            long saturatedCells = 0;
+            for (int stage = 0; stage < radii.Count - 1; stage++)
             {
-                radius *= 2d;
+                totalCells += cells[stage];
+                saturatedCells += saturated[stage];
+                if (totalCells == 0 || saturatedCells * 100L < totalCells * SaturatedAreaPercent)
+                {
+                    return radii[stage];
+                }
             }
-            return (float)radius;
+            return radii[radii.Count - 1];
         }
 
         private static int ProjectCell(float coordinate, float worldSize, int dimension)

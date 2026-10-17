@@ -1,12 +1,16 @@
 # InfraSpace QoL Mod
 
-InfraSpace QoL adds a `4x` Very Fast option, improves Collection Center supply, configures Red Science consumption, automatically releases factory workers when every output buffer is full, and expands terraformer coverage as local terrain saturates. Direct supply, worker automation, and terraforming expansion are enabled by default; the Red Science multiplier defaults to `0.5`.
+InfraSpace QoL adds `4x` Very Fast and `8x` Superspeed options, improves Collection Center supply, configures Red Science consumption and output, automatically releases factory workers when every output buffer is full, expands terraformer coverage as local terrain saturates, and automates laser obstacle clearing. These automations are enabled by default; the Red Science cost multiplier defaults to `0.5`.
+
+The speed controls use three chevrons for `4x` and four for `8x`, with distinct normal, hover, and selected appearances. Both use the game's native simulation speeds and retain the selected speed when pausing and resuming. Their icon assets are embedded in the mod DLL.
 
 Storehouses accept fixed resource categories, including concrete; there is no material selector. Direct supply routes stock to Storehouses over roads after factory and research lab requests. Labs can receive their currently requested science packs directly from Collection Centers without a Distribution Center; existing road, district, and capacity checks apply.
 
-Storehouses receive overflow only: the supplying producer's output buffer or Collection/Distribution Center's stock must be at least 90% full before scheduling a storage delivery, with a full truck available. Only resources accepted by the Storehouse are affected. Goods already in transit do not count toward the supplier's threshold. Factory and lab deliveries remain eligible below this threshold. The overflow rule also applies when direct supply is disabled.
+Storehouses receive overflow only: the supplying producer's output buffer or Collection/Distribution Center's stock must be at least 90% full before scheduling a storage delivery, with a full truck available. Adamantite (called `adamantine` internally) is exempt from the 90% threshold and can ship whenever a full truckload is available, including from Collection and Distribution Centers. Only resources accepted by the Storehouse are affected. Goods already in transit do not count toward the supplier's threshold. Factory and lab deliveries remain eligible below this threshold. The overflow rule and adamantite exemption also apply when direct supply is disabled.
 
 Spaceship repairs can receive their final items even when fewer than a full truckload remain. Direct Collection Center shipments carry the exact remaining amount; Distribution Centers retain the game's final-load behavior. Items already in transit count toward repair demand.
+
+Collection Centers also supply construction and upgrade stages, including the Adamantine Drill, before surplus storage. Demand subtracts materials already accumulated by the stage, arrived stock, and incoming trucks. The final direct shipment carries only the remaining amount, including a single radiation core when needed.
 
 Producer deliveries into Collection Centers enforce the center's current collection radius at dispatch. Stale producer connections outside that radius are removed before choosing a destination. The radius uses horizontal distance between building positions, as in the game; roads can still take a longer route. This check remains enabled when direct supply is disabled. Existing trucks keep their destinations.
 
@@ -14,26 +18,56 @@ Collection Centers, Distribution Centers, and ordinary producers prefer the near
 
 ## Configure
 
-The Magnetic Field Generator construction stage that normally requires 250 adamantite now requires **75**. This applies to new construction and unfinished stages loaded from a save. Materials already delivered remain credited; other materials and monument costs are unchanged.
+The Magnetic Field Generator upfront placement cost is **75 adamantite instead of 250**. This applies when loading existing saves as well as starting a new game. Other materials and subsequent construction stages are unchanged. Previously spent placement materials are not refunded.
 
-Terraformers automatically double their effective radius once every playable terrain cell inside their current radius reaches 99% total terraforming progress. Coverage grows in steps: `1x → 2x → 4x → 8x`, stopping once it covers the playable map. Each larger circle must fill before the radius doubles again. This requires enough combined terraforming types and efficiency to reach 99%; a lone early-game terraforming type cannot trigger expansion. Buildings still need their normal inputs, power, and staffing. Expanded coverage uses the game's normal terraforming rate and contribution calculations. Building range indicators continue to show their original radius.
+Terraformers automatically double their effective radius once at least **95% of the playable terrain cells inside their current radius reach 99% total terraforming progress**. Small unfinished edges or holes no longer block expansion. Coverage grows in steps: `1x → 2x → 4x → 8x`, stopping once it covers the playable map. Each larger circle must meet the same 95% area threshold before the radius doubles again. This requires enough combined terraforming types and efficiency to reach 99%; a lone early-game terraforming type cannot trigger expansion. Buildings still need their normal inputs, power, and staffing. Expanded coverage uses the game's normal terraforming rate and contribution calculations. Building range indicators continue to show their original radius.
 
-Expansion is reconstructed from terrain progress, including when loading an existing save. Losing enough production for local progress to fall below 99% can shrink coverage again, and the game can then decay unsupported terrain. Set `Terraforming.ExpandWhenLocalAreaSaturated` to `false` and restart to restore normal coverage. Expansion defaults to `true`, including with an older settings file that has no Terraforming section.
+Expansion is reconstructed from terrain progress, including when loading an existing save. If more than 5% of a circle falls below 99% progress, coverage can shrink again, and the game can then decay unsupported terrain. Set `Terraforming.ExpandWhenLocalAreaSaturated` to `false` and restart to restore normal coverage. Expansion defaults to `true`, including with an older settings file that has no Terraforming section.
 
 Factories automatically release their workers when **every output buffer is completely full**. A water-and-carbon producer keeps workers if either output has room. When any output has room again, the factory becomes eligible for workers on the next employment pass; actual staffing depends on available workers and your current resource workforce priorities. Manual output reductions, including changes made while a factory is idle, remain in effect. The mod never changes these priorities or the factory's normal worker capacity. Storage upgrades count toward the full-buffer check. Power producers, terraforming, spaceship work, and buildings without stored outputs are excluded.
 
-Edit `settings.json` beside the mod DLL, then restart the game:
+Use the installer's feature tabs to adjust every feature, or edit `settings.json` beside the mod DLL, then restart the game. All feature toggles default to `true`; older settings files automatically receive defaults for missing options.
 
 ```json
 {
-  "Logistics": { "DirectCollectionSupply": true },
-  "Research": { "RedScienceCostMultiplier": 0.5 },
+  "Speed": { "ExtraSpeedControls": true },
+  "Logistics": {
+    "DirectCollectionSupply": true,
+    "OverflowOnlyStorage": true,
+    "AdamantiteStorageExemption": true,
+    "PreferNearestStorehouse": true,
+    "EnforceCollectionRadius": true,
+    "AllowPartialFinalLoads": true
+  },
+  "Research": { "RedScienceCostMultiplier": 0.5, "DoubleRedScienceOutput": true },
   "Workforce": { "ReleaseWorkersWhenAllOutputsFull": true },
-  "Terraforming": { "ExpandWhenLocalAreaSaturated": true }
+  "Terraforming": { "ExpandWhenLocalAreaSaturated": true },
+  "Laser": { "AutoClearObstacles": true, "SpeedMultiplier": 3 },
+  "Monuments": { "ReduceMagneticFieldGeneratorCost": true }
 }
 ```
 
 Set direct supply to `false` to disable it. Set the Red Science multiplier from `0` (free) to `1` (vanilla). Other science costs are unchanged. Previously consumed packs cannot be refunded when enabling the mod on an existing research project.
+
+Additional controls:
+
+| Setting | Effect when disabled |
+| --- | --- |
+| `Speed.ExtraSpeedControls` | Omit the added 4x and 8x buttons. |
+| `Logistics.OverflowOnlyStorage` | Allow full truckloads to Storehouses below the 90% supplier threshold. |
+| `Logistics.AdamantiteStorageExemption` | Apply the overflow threshold to adamantite too, when overflow-only storage is enabled. |
+| `Logistics.PreferNearestStorehouse` | Leave native storage selection in effect; direct supply can use any eligible Storehouse. |
+| `Logistics.EnforceCollectionRadius` | Disable the extra radius check and stale connection cleanup. |
+| `Logistics.AllowPartialFinalLoads` | Require full loads for direct construction, upgrade and spaceship repair deliveries; the last few items may then need native supply. |
+| `Monuments.ReduceMagneticFieldGeneratorCost` | Restore the generator's upfront placement cost to 250 adamantite. |
+
+Storage selection, overflow rules, and the radius check are independently configurable, including with direct supply disabled. Existing trucks keep their destinations. Disabling a feature takes effect after restarting the game; it does not undo completed construction, research, or cleared obstacles.
+
+The spaceship laser automatically clears clickable, building-blocking environment obstacles across the whole map once its cannon is repaired and at least one targeting station is built. It starts with the nearest obstacle to a targeting station, then picks the nearest remaining obstacle to its last target. Manual targeting queues take priority, and clearing resumes when they finish. Multiple targeting stations share one cannon, so they do not stack damage or firing speed. Removing all targeting stations stops automatic firing. Obstacles the cannon cannot acquire within five game seconds are skipped until you reload the save. Automation defaults to `true`, including with older settings files; set `Laser.AutoClearObstacles` to `false` and restart to disable it.
+
+The laser deals damage and warms up its beam at **3× normal speed**, multiplying its existing speed upgrades. This applies to both manual and automatic firing, even with automation disabled. `Laser.SpeedMultiplier` defaults to `3`, including with older settings files; set it to `1` for normal speed, or a value up to `10`, then restart the game. Target acquisition still uses the game's normal raycasts.
+
+Red Science factories produce **two packs per normal one-pack batch** by default, including with an older settings file. Ingredient amounts, batch time, power, and staffing requirements stay the same. Existing output upgrades are doubled too. Normal output storage limits still apply, and other resource outputs are unchanged. Set `Research.DoubleRedScienceOutput` to `false` and restart to restore normal output. This is independent of `RedScienceCostMultiplier`, which controls packs consumed by research labs.
 
 Set `ReleaseWorkersWhenAllOutputsFull` to `false` to disable automatic worker release. It defaults to `true`, including with an older settings file that has no Workforce section. Settings changes require restarting the game.
 
@@ -43,10 +77,15 @@ If someone shares a locally built installer package with you, you do **not** nee
 
 1. Install InfraSpace.
 2. Keep `InfraSpaceQoLInstaller.exe`, `InfraSpaceQoL.dll`, `0Harmony.dll`, `config.json`, and `settings.json` together in one folder.
-3. Close InfraSpace, run `InfraSpaceQoLInstaller.exe`, and click **Install**.
-4. Start InfraSpace and enable InfraSpace QoL in the game's Mods menu.
+3. Close InfraSpace and run `InfraSpaceQoLInstaller.exe`.
+4. Review the **Speed**, **Logistics**, **Research**, **Workforce**, **Terraforming**, **Laser**, and **Monuments** tabs. Scroll within a tab if needed. Change the checkboxes and numeric values, then click **Install**.
+5. Start InfraSpace and enable InfraSpace QoL in the game's Mods menu.
 
-The installer shows the package version and preserves existing settings when updating. This repository contains source code; compiled installers and DLLs are not committed. Builds run locally, with no GitHub Actions runner to configure.
+The installer shows the package version and loads installed settings when updating; new installs use the package settings. New options use the same defaults as the mod. **Install** writes the choices shown, preserves unknown settings keys, and keeps the previous settings as `settings.json.bak`. Closing the installer without installing saves nothing. Invalid JSON or setting values block installation with an error so you can correct the file first. Rerun the installer to change settings later, with the game closed.
+
+Recent additions include distinct 4x/8x speed icons, double Red Science factory output, automatic laser obstacle clearing, and adjustable laser speed for both manual and automatic fire. Each now has an installer control, alongside the existing logistics, workforce, terraforming, and monument options.
+
+This repository contains source code; compiled installers and DLLs are not committed. Builds run locally, with no GitHub Actions runner to configure.
 
 ## Build your own copy
 

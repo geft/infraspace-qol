@@ -6,20 +6,8 @@ using UnityEngine;
 
 namespace InfraSpaceQoL
 {
-    internal sealed class ModSettings
+    internal sealed class ModSettings : SettingsOptions
     {
-        [JsonProperty("Logistics")]
-        public LogisticsSettings Logistics = new LogisticsSettings();
-
-        [JsonProperty("Research")]
-        public ResearchSettings Research = new ResearchSettings();
-
-        [JsonProperty("Workforce")]
-        public WorkforceSettings Workforce = new WorkforceSettings();
-
-        [JsonProperty("Terraforming")]
-        public TerraformingSettings Terraforming = new TerraformingSettings();
-
         internal static ModSettings Current { get; private set; } = new ModSettings();
 
         internal static void Load()
@@ -41,6 +29,8 @@ namespace InfraSpaceQoL
                     throw new InvalidDataException("The JSON document did not contain a settings object.");
                 }
 
+                if (settings.Speed == null) settings.Speed = new SpeedSettings();
+                if (settings.Monuments == null) settings.Monuments = new MonumentSettings();
                 if (settings.Logistics == null)
                 {
                     settings.Logistics = new LogisticsSettings();
@@ -56,6 +46,15 @@ namespace InfraSpaceQoL
                 if (settings.Terraforming == null)
                 {
                     settings.Terraforming = new TerraformingSettings();
+                }
+                if (settings.Laser == null)
+                {
+                    settings.Laser = new LaserSettings();
+                }
+                if (settings.Laser.SpeedMultiplier < 1m || settings.Laser.SpeedMultiplier > 10m)
+                {
+                    Debug.LogWarning("[InfraSpaceQoL] Laser SpeedMultiplier must be between 1 and 10; using 3.");
+                    settings.Laser.SpeedMultiplier = 3m;
                 }
                 if (settings.Research.RedScienceCostMultiplier < 0m ||
                     settings.Research.RedScienceCostMultiplier > 1m)
@@ -74,27 +73,4 @@ namespace InfraSpaceQoL
         }
     }
 
-    internal sealed class LogisticsSettings
-    {
-        [JsonProperty("DirectCollectionSupply")]
-        public bool DirectCollectionSupply = true;
-    }
-
-    internal sealed class ResearchSettings
-    {
-        [JsonProperty("RedScienceCostMultiplier")]
-        public decimal RedScienceCostMultiplier = 0.5m;
-    }
-
-    internal sealed class WorkforceSettings
-    {
-        [JsonProperty("ReleaseWorkersWhenAllOutputsFull")]
-        public bool ReleaseWorkersWhenAllOutputsFull = true;
-    }
-
-    internal sealed class TerraformingSettings
-    {
-        [JsonProperty("ExpandWhenLocalAreaSaturated")]
-        public bool ExpandWhenLocalAreaSaturated = true;
-    }
 }

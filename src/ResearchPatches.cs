@@ -15,6 +15,32 @@ namespace InfraSpaceQoL
         private static readonly FieldInfo CachedConsumables = typeof(ResearchProductionLogic).GetField(
             "consumables", BindingFlags.Instance | BindingFlags.NonPublic);
 
+        public static void RedScienceOutputPostfix(ref ProductionDefinition __result)
+        {
+            if (__result == null || __result.producables == null)
+            {
+                return;
+            }
+            ProductionDefinition boosted = null;
+            foreach (ResourceCost output in __result.producables)
+            {
+                if (output.amount > 0 && IsRedScienceResourceName(output.resourceName))
+                {
+                    // Copy the manager's cached recipe so repeated lookups and
+                    // factory upgrades cannot compound the output bonus.
+                    if (boosted == null)
+                    {
+                        boosted = new ProductionDefinition(__result);
+                    }
+                    int extra = (int)Math.Min(output.amount, int.MaxValue - (long)output.amount);
+                    boosted.Boost("InfraSpace QoL", output.resourceName, extra);
+                }
+            }
+            if (boosted != null)
+            {
+                __result = boosted;
+            }
+        }
         public static bool ResearchUpdatePrefix(ResearchProductionLogic __instance)
         {
             decimal multiplier = ModSettings.Current.Research.RedScienceCostMultiplier;

@@ -19,7 +19,7 @@ using System.Reflection;
 [assembly: AssemblyFileVersion("$version.0")]
 [assembly: AssemblyInformationalVersion("$version")]
 "@ | Set-Content -LiteralPath $versionSource -Encoding utf8
-& $compiler /nologo /target:winexe /optimize+ "/out:$(Join-Path $output 'InfraSpaceQoLInstaller.exe')" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll (Join-Path $PSScriptRoot 'Program.cs') $versionSource
+& $compiler /nologo /target:winexe /optimize+ "/out:$(Join-Path $output 'InfraSpaceQoLInstaller.exe')" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Web.Extensions.dll (Join-Path $PSScriptRoot 'Program.cs') (Join-Path $PSScriptRoot 'SettingsEditor.cs') (Join-Path $root 'src/SettingsOptions.cs') $versionSource
 if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
 foreach ($file in @('InfraSpaceQoL.dll', '0Harmony.dll', 'settings.json')) {
     Copy-Item -LiteralPath (Join-Path $modOutput $file) -Destination $output -Force
