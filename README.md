@@ -4,6 +4,10 @@ Quality-of-life improvements for InfraSpace: faster simulation speeds, better de
 
 ## Installation
 
+**[Download the latest Windows installer package](https://github.com/geft/infraspace-qol/releases/latest/download/InfraSpaceQoL-Windows.zip)**
+
+Extract the entire ZIP before running the installer. You do not need to clone this repository or install developer tools. This link always points to the latest release.
+
 1. Install InfraSpace through Steam.
 2. Keep the complete installer package together in one folder: `InfraSpaceQoLInstaller.exe`, `InfraSpaceQoL.dll`, `0Harmony.dll`, `config.json`, and `settings.json`.
 3. Close InfraSpace and run `InfraSpaceQoLInstaller.exe`.

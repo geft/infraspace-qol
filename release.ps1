@@ -30,6 +30,7 @@ try {
     [IO.File]::WriteAllText($configPath, $newConfig, [Text.UTF8Encoding]::new($false))
     Write-Output "Building release $($config.version) -> $nextVersion"
     & (Join-Path $PSScriptRoot 'build.ps1') -DotNetPath $DotNetPath -ManagedDir $ManagedDir -HarmonyPath $HarmonyPath
+    & (Join-Path $PSScriptRoot 'package.ps1')
 }
 catch {
     [IO.File]::WriteAllBytes($configPath, $originalConfig)

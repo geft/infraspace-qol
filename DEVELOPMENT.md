@@ -58,6 +58,16 @@ To prepare a new version locally:
 pwsh -NoProfile -File .\release.ps1
 ```
 
-Each successful release increments the patch version (for example, `1.1.2` to `1.1.3`), builds and tests, and refreshes `installer\bin\Release`. Use `-Increment Minor`, `-Increment Major`, or `-Version major.minor.patch` when appropriate. It accepts the same dependency paths as `build.ps1`. `config.json` is the version source for the DLL, installer, and installed metadata. The source version is restored if a step fails. No ZIP is created.
+Each successful release increments the patch version (for example, `1.1.2` to `1.1.3`), builds and tests, refreshes `installer\bin\Release`, and packages `installer\bin\InfraSpaceQoL-Windows.zip`. Use `-Increment Minor`, `-Increment Major`, or `-Version major.minor.patch` when appropriate. It accepts the same dependency paths as `build.ps1`. `config.json` is the version source for the DLL, installer, and installed metadata. The source version is restored if a step fails.
+
+To package an already built version without incrementing it, run `pwsh -NoProfile -File .\package.ps1`.
+
+After committing and pushing the release source, publish the ZIP as a GitHub release asset. For example, with release notes saved in a text file:
+
+```powershell
+gh release create v1.1.8 .\installer\bin\InfraSpaceQoL-Windows.zip --target main --title "InfraSpace QoL 1.1.8" --notes-file release-notes.txt --latest
+```
+
+Use the new version number for each release, but always upload the asset as **InfraSpaceQoL-Windows.zip** and mark the release as latest. The README's `/releases/latest/download/InfraSpaceQoL-Windows.zip` link then follows the new release automatically. Building a package alone does not publish it.
 
 Commit source code, scripts, and version metadata. Build folders, EXEs, DLLs, and ZIPs are ignored by Git. Game assemblies and downloaded dependencies remain on the local machine.
