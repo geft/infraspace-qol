@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $output = Join-Path $root 'bin\Release\net472'
-foreach ($name in @('UnityEngine.CoreModule', 'DionicCore', 'DionicGame', 'InfraSpaceCore',
+foreach ($name in @('UnityEngine.CoreModule', 'Unity.Collections', 'Unity.Mathematics', 'DionicCore', 'DionicGame', 'InfraSpaceCore',
     'InfraSpaceGameExtensions', 'InfraSpaceGameFeatures', 'old', 'Assembly-CSharp', 'Newtonsoft.Json')) {
     [Reflection.Assembly]::LoadFrom((Join-Path $ManagedDir "$name.dll")) | Out-Null
 }
@@ -280,6 +280,7 @@ Assert-Equal ($suggestPrefix.Invoke($null, @($storageSuggestion))) $true 'Native
 $producer.outgoingStorage[0] -= 3
 Assert-Equal ($suggestPrefix.Invoke($null, @($storageSuggestion))) $false 'Storage stops draining once source falls below threshold'
 . (Join-Path $PSScriptRoot 'WorkforceRegression.ps1')
+. (Join-Path $PSScriptRoot 'TerraformRegression.ps1')
 # Harmony runs in the game's .NET Framework runtime, independently of PowerShell's CLR.
 $smokeExe = Join-Path ([IO.Path]::GetTempPath()) ('InfraSpaceWorkforceSmoke-' + [guid]::NewGuid().ToString('N') + '.exe')
 try {

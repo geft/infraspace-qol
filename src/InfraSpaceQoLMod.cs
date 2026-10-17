@@ -20,6 +20,18 @@ namespace InfraSpaceQoL
 
             ModSettings.Load();
             var patches = new List<PatchPlan>();
+            if (ModSettings.Current.Terraforming.ExpandWhenLocalAreaSaturated)
+            {
+                RequireField(typeof(TerraformBuildingsManager), "terraformers", typeof(Dictionary<long, Terraformer>));
+                RequireField(typeof(TerraformBuildingsManager), "progress", typeof(Unity.Collections.NativeArray<float>));
+                RequireField(typeof(TerraformBuildingsManager), "progressDim", typeof(Unity.Mathematics.int2));
+                RequireField(typeof(TerraformBuildingsManager), "mapCorner", typeof(float));
+                RequireField(typeof(TerraformBuildingsManager), "mapSize", typeof(float));
+                RequireField(typeof(TerraformBuildingsManager), "worldSize", typeof(float));
+                RequireField(typeof(TerraformBuildingsManager), "jobSequentialScheduler", typeof(JobSequentialScheduler));
+                Plan(patches, typeof(TerraformBuildingsManager), "Terraform", typeof(TerraformPatches),
+                    "TerraformPrefix", null, "TerraformFinalizer");
+            }
             if (ModSettings.Current.Workforce.ReleaseWorkersWhenAllOutputsFull)
             {
                 RequireField(typeof(Market), "industries", typeof(Dictionary<Resource, List<FactoryProductionLogic>>));
@@ -91,6 +103,7 @@ namespace InfraSpaceQoL
             }
             patchesApplied = true;
             Debug.Log("[InfraSpaceQoL] Loaded. Direct Collection Supply=" + ModSettings.Current.Logistics.DirectCollectionSupply +
+                      ", Expand saturated terraforming=" + ModSettings.Current.Terraforming.ExpandWhenLocalAreaSaturated +
                       ", Release workers when all outputs full=" + ModSettings.Current.Workforce.ReleaseWorkersWhenAllOutputsFull +
                       ", Red Science multiplier=" + ModSettings.Current.Research.RedScienceCostMultiplier.ToString("0.###") + ".");
         }

@@ -17,6 +17,9 @@ namespace InfraSpaceQoL
         [JsonProperty("Workforce")]
         public WorkforceSettings Workforce = new WorkforceSettings();
 
+        [JsonProperty("Terraforming")]
+        public TerraformingSettings Terraforming = new TerraformingSettings();
+
         internal static ModSettings Current { get; private set; } = new ModSettings();
 
         internal static void Load()
@@ -49,6 +52,10 @@ namespace InfraSpaceQoL
                 if (settings.Workforce == null)
                 {
                     settings.Workforce = new WorkforceSettings();
+                }
+                if (settings.Terraforming == null)
+                {
+                    settings.Terraforming = new TerraformingSettings();
                 }
                 if (settings.Research.RedScienceCostMultiplier < 0m ||
                     settings.Research.RedScienceCostMultiplier > 1m)
@@ -83,5 +90,11 @@ namespace InfraSpaceQoL
     {
         [JsonProperty("ReleaseWorkersWhenAllOutputsFull")]
         public bool ReleaseWorkersWhenAllOutputsFull = true;
+    }
+
+    internal sealed class TerraformingSettings
+    {
+        [JsonProperty("ExpandWhenLocalAreaSaturated")]
+        public bool ExpandWhenLocalAreaSaturated = true;
     }
 }

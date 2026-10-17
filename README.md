@@ -1,6 +1,6 @@
 # InfraSpace QoL Mod
 
-InfraSpace QoL adds a `4x` Very Fast option, improves Collection Center supply, configures Red Science consumption, and automatically releases factory workers when every output buffer is full. Direct supply and worker automation are enabled by default; the Red Science multiplier defaults to `0.5`.
+InfraSpace QoL adds a `4x` Very Fast option, improves Collection Center supply, configures Red Science consumption, automatically releases factory workers when every output buffer is full, and expands terraformer coverage as local terrain saturates. Direct supply, worker automation, and terraforming expansion are enabled by default; the Red Science multiplier defaults to `0.5`.
 
 Storehouses accept fixed resource categories, including concrete; there is no material selector. Direct supply routes stock to Storehouses over roads after factory and research lab requests. Labs can receive their currently requested science packs directly from Collection Centers without a Distribution Center; existing road, district, and capacity checks apply.
 
@@ -14,6 +14,10 @@ Collection Centers, Distribution Centers, and ordinary producers prefer the near
 
 ## Configure
 
+Terraformers automatically double their effective radius once every playable terrain cell inside their current radius reaches 99% total terraforming progress. Coverage grows in steps: `1x → 2x → 4x → 8x`, stopping once it covers the playable map. Each larger circle must fill before the radius doubles again. This requires enough combined terraforming types and efficiency to reach 99%; a lone early-game terraforming type cannot trigger expansion. Buildings still need their normal inputs, power, and staffing. Expanded coverage uses the game's normal terraforming rate and contribution calculations. Building range indicators continue to show their original radius.
+
+Expansion is reconstructed from terrain progress, including when loading an existing save. Losing enough production for local progress to fall below 99% can shrink coverage again, and the game can then decay unsupported terrain. Set `Terraforming.ExpandWhenLocalAreaSaturated` to `false` and restart to restore normal coverage. Expansion defaults to `true`, including with an older settings file that has no Terraforming section.
+
 Factories automatically release their workers when **every output buffer is completely full**. A water-and-carbon producer keeps workers if either output has room. When any output has room again, the factory becomes eligible for workers on the next employment pass; actual staffing depends on available workers and your current resource workforce priorities. Manual output reductions, including changes made while a factory is idle, remain in effect. The mod never changes these priorities or the factory's normal worker capacity. Storage upgrades count toward the full-buffer check. Power producers, terraforming, spaceship work, and buildings without stored outputs are excluded.
 
 Edit `settings.json` beside the mod DLL, then restart the game:
@@ -22,7 +26,8 @@ Edit `settings.json` beside the mod DLL, then restart the game:
 {
   "Logistics": { "DirectCollectionSupply": true },
   "Research": { "RedScienceCostMultiplier": 0.5 },
-  "Workforce": { "ReleaseWorkersWhenAllOutputsFull": true }
+  "Workforce": { "ReleaseWorkersWhenAllOutputsFull": true },
+  "Terraforming": { "ExpandWhenLocalAreaSaturated": true }
 }
 ```
 
